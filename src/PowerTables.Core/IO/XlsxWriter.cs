@@ -46,9 +46,9 @@ public static class XlsxWriter
         {
             var bytes = Encoding.UTF8.GetBytes("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<worksheet xmlns=\"" + XlsxReader.MainNs + "\"><dimension ref=\"A1\"/><sheetData/></worksheet>");
             s.Write(bytes);
-            st.SheetBytes[sh] = bytes;
         }
         sh.PartId = wbp.GetIdOfPart(wsp);
+        sh.OrigName = sh.Name;
         var sheets = wbp.Workbook.Sheets ??= new Sheets();
         uint id = sheets.Elements<DocumentFormat.OpenXml.Spreadsheet.Sheet>().Select(x => x.SheetId?.Value ?? 0).DefaultIfEmpty(0u).Max() + 1;
         sheets.Append(new DocumentFormat.OpenXml.Spreadsheet.Sheet { Name = sh.Name, SheetId = id, Id = sh.PartId });
@@ -61,22 +61,26 @@ public static class XlsxWriter
         var st = wb.Pkg ?? throw new InvalidOperationException("nessun package");
         var wbp = st.Doc.WorkbookPart!;
         // nuovi fogli e rinomine
+        bool wbChanged = false;
         foreach (var sh in wb.Sheets)
         {
-            if (sh.PartId == null) wb.AddSheetPartFor(sh);
+            if (sh.PartId == null) { wb.AddSheetPartFor(sh); wbChanged = true; }
+            if (sh.OrigName == sh.Name) continue;
             var el = wbp.Workbook.Sheets!.Elements<DocumentFormat.OpenXml.Spreadsheet.Sheet>().FirstOrDefault(x => x.Id?.Value == sh.PartId);
-            if (el != null && el.Name?.Value != sh.Name) el.Name = sh.Name;
+            if (el != null && el.Name?.Value != sh.Name) { el.Name = sh.Name; wbChanged = true; }
+            sh.OrigName = sh.Name;
         }
-        wbp.Workbook.Save();
+        if (wbChanged) wbp.Workbook.Save();
 
         foreach (var sh in wb.Sheets)
         {
             if (!sh.Loaded) continue;
             if (sh.DirtyRows.Count == 0 && !sh.LayoutDirty) continue;
             var wsp = (WorksheetPart)wbp.GetPartById(sh.PartId!);
-            var bytes = RewriteSheet(sh, st.SheetBytes[sh]);
+            byte[] orig;
+            using (var rs = wsp.GetStream(FileMode.Open, FileAccess.Read)) { var ms = new MemoryStream(); rs.CopyTo(ms); orig = ms.ToArray(); }
+            var bytes = RewriteSheet(sh, orig);
             using (var s = wsp.GetStream(FileMode.Create)) s.Write(bytes);
-            st.SheetBytes[sh] = bytes;
             sh.DirtyRows.Clear(); sh.LayoutDirty = false;
         }
         if (wb.Styles.Dirty)

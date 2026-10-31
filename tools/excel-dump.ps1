@@ -1,4 +1,4 @@
-# Apre un .xlsx con Excel vero (istanza privata, nascosta), rileva errori/ripristino e scarica celle in JSON.
+﻿# Apre un .xlsx con Excel vero (istanza privata, nascosta), rileva errori/ripristino e scarica celle in JSON.
 # Letture con Formula/Value2 (invarianti): mai FormulaLocal/Text.
 param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Out, [switch]$Recalc, [int]$Timeout = 120)
 . "$PSScriptRoot\Excel-Com.ps1"

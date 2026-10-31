@@ -17,7 +17,7 @@ public sealed class RowInfo
 
 public sealed class ColInfo
 {
-    public double Width = 8.43;
+    public double Width = 9.140625;
     public bool Hidden, CustomWidth;
     public uint Style;
 }
@@ -42,11 +42,12 @@ public sealed class Sheet
     public Workbook Book { get; internal set; } = null!;
     public int Index;
     internal readonly Dictionary<long, Cell> Cells = new();
+    public IReadOnlyDictionary<long, Cell> CellMap => Cells;
     public readonly Dictionary<int, RowInfo> Rows = [];
     public readonly Dictionary<int, ColInfo> Cols = [];
     public readonly List<MergeRange> Merges = [];
     public int FrozenRows, FrozenCols;
-    public double DefaultRowHeight = 15, DefaultColWidth = 8.43;
+    public double DefaultRowHeight = 15, DefaultColWidth = 9.140625;
     public AutoFilterState? Filter;
     public bool ShowGridLines = true;
 
@@ -56,7 +57,8 @@ public sealed class Sheet
     // Persistenza (round-trip)
     internal HashSet<int> DirtyRows = [];
     internal bool LayoutDirty;      // cols/merge/pane/filtro modificati
-    internal string? PartId;        // id relazione nel workbook
+    internal string? PartId;
+    internal string? OrigName;        // id relazione nel workbook
     internal bool Loaded = true;
 
     public Sheet(string name) { Name = name; }
