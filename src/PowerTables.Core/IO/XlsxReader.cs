@@ -13,7 +13,6 @@ internal sealed class PackageState : IDisposable
 {
     public MemoryStream Ms = null!;
     public SpreadsheetDocument Doc = null!;
-    public Dictionary<Sheet, byte[]> SheetBytes = [];
     public bool FormulasTouched;
     public void Dispose() { Doc?.Dispose(); Ms?.Dispose(); }
 }
@@ -88,12 +87,11 @@ public static class XlsxReader
         {
             string name = (string?)se.Attribute("name") ?? "Foglio" + (idx + 1);
             string? rid = (string?)se.Attribute(r + "id");
-            var sh = new Sheet(name) { Book = wb, Index = idx++, PartId = rid };
+            var sh = new Sheet(name) { Book = wb, Index = idx++, PartId = rid, OrigName = name };
             wb.Sheets.Add(sh);
             if (rid == null || wbp.GetPartById(rid) is not WorksheetPart wsp) { sh.Loaded = false; continue; } // chartsheet ecc.: intatto
             byte[] sb;
             using (var s = wsp.GetStream(FileMode.Open, FileAccess.Read)) { var ms = new MemoryStream(); s.CopyTo(ms); sb = ms.ToArray(); }
-            st.SheetBytes[sh] = sb;
             LoadSheet(sh, sb, sst);
         }
         foreach (var dn in wdoc.Root.Element(m + "definedNames")?.Elements(m + "definedName") ?? [])

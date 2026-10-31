@@ -234,6 +234,8 @@ public static partial class Fns
         }
     }
 
+    public static IEnumerable<Cell> StoredPublic(RangeRef r) => Stored(r);
+
     /// <summary>Celle effettivamente presenti in un intervallo (ordine non garantito se l'area è grande).</summary>
     internal static IEnumerable<Cell> Stored(RangeRef r)
     {

@@ -23,7 +23,7 @@ public sealed partial class Workbook
     public bool Date1904;
     public string? FilePath;
     public StyleTable Styles = StyleTable.CreateDefault();
-    public bool Modified { get; internal set; }
+    public bool Modified { get; set; }
     internal IO.PackageState? Pkg;
     public bool FormulasChangedSinceOpen;
     public event Action? Changed;
@@ -117,7 +117,7 @@ public sealed partial class Workbook
 
     // ---------------- scrittura celle ----------------
     /// <summary>Scrive una cella registrando undo e dipendenze.</summary>
-    internal void Write(Sheet s, int row, int col, Cell nc)
+    public void Write(Sheet s, int row, int col, Cell nc)
     {
         long k = Addr.Key(row, col);
         var old = s.Get(row, col);

@@ -213,9 +213,22 @@ public static partial class Fns
         if (idx > (horizontal ? rows : cols)) return CellError.Ref;
         int n = horizontal ? cols : rows;
         if (a[1] is RangeRef rr) n = horizontal ? Math.Min(cols, Math.Max(rr.Sheet.MaxCol - rr.C1 + 1, 0)) : Math.Min(rows, Math.Max(rr.Sheet.MaxRow - rr.R1 + 1, 0));
-        var vec = new List<object?>(n);
-        for (int k = 0; k < n; k++) vec.Add(horizontal ? at(0, k) : at(k, 0));
-        int i = MatchIn(x, vec, approx ? 1 : 0);
+        int i = -1;
+        if (!approx && !(x is string xs && (xs.Contains('*') || xs.Contains('?') || xs.Contains('~'))))
+        {
+            // ricerca esatta senza costruire il vettore (milioni di righe)
+            for (int k = 0; k < n; k++)
+            {
+                var v = horizontal ? at(0, k) : at(k, 0);
+                if (v != null && TypeRank(v) == TypeRank(x) && CmpLookup(v, x) == 0) { i = k; break; }
+            }
+        }
+        else
+        {
+            var vec = new List<object?>(n);
+            for (int k = 0; k < n; k++) vec.Add(horizontal ? at(0, k) : at(k, 0));
+            i = MatchIn(x, vec, approx ? 1 : 0);
+        }
         if (i < 0) return CellError.NA;
         return horizontal ? at(idx - 1, i) : at(i, idx - 1);
     }

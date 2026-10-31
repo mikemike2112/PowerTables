@@ -1,5 +1,8 @@
-# Helper COM per Excel (dot-source). Avvia un'istanza PRIVATA, la traccia per PID e la chiude sempre.
+﻿# Helper COM per Excel (dot-source). Avvia un'istanza PRIVATA, la traccia per PID e la chiude sempre.
 # Regole: mai Stop-Process -Name; kill solo del PID avviato qui. Finestra nascosta, alert disattivati.
+# Le chiamate COM da PowerShell usano la cultura del thread: forzo en-US così NumberFormat/Formula sono invarianti (non toccano le impostazioni di Office).
+[System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::GetCultureInfo('en-US')
+
 function Start-Xl([bool]$Visible = $false) {
     $before = @(Get-Process EXCEL -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
     $xl = New-Object -ComObject Excel.Application
@@ -17,6 +20,7 @@ function Start-Xl([bool]$Visible = $false) {
         $after = @(Get-Process EXCEL -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
         $new = @($after | Where-Object { $before -notcontains $_ }); if ($new.Count -eq 1) { $pid_ = $new[0] }
     }
+    if ($env:PT_PIDFILE -and $pid_ -gt 0) { Set-Content -Path $env:PT_PIDFILE -Value $pid_ }   # permette al chiamante di terminare SOLO questo PID in caso di blocco
     return [pscustomobject]@{ App = $xl; Pid = $pid_ }
 }
 
