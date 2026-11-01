@@ -153,7 +153,7 @@ public sealed partial class Workbook
     /// <summary>Formula in forma utente (senza '='); viene convertita nella forma di file (_xlfn.).</summary>
     public void SetFormula(Sheet s, int r, int c, string userFormula)
     {
-        var text = FormulaText.ToFile(userFormula.Trim());
+        var text = FormulaText.ToFile(FormulaText.FromUser(userFormula.Trim()));
         try { Parser.Parse(text); } catch (FormatException ex) { throw new FormatException("Formula non valida: " + ex.Message); }
         var old = s.Get(r, c);
         Write(s, r, c, new Cell { Style = old.Style, F = new FormulaInfo { Text = text } });

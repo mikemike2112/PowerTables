@@ -38,6 +38,56 @@ public static class FormulaText
         return Rebuild(formula, toks, t => t.Kind == T.Ref ? (t.Ref!.Shifted(dRow, dCol)?.Text() ?? "#REF!") : null);
     }
 
+    /// <summary>
+    /// Testo digitato dall'utente → forma neutra (nomi inglesi, virgola): accetta anche nomi italiani (SOMMA, SE...) e il separatore ';'
+    /// con la virgola decimale (=SOMMA(A1;A2;1,5)). Nel file restano sempre nomi inglesi e virgola.
+    /// </summary>
+    public static string FromUser(string text)
+    {
+        bool semi = HasListSemicolon(text);
+        string s = semi ? ItalianDecimals(text) : text;
+        List<Token> toks;
+        try { toks = Lexer.Tokenize(s); } catch (FormatException) { return text; }
+        int brace = 0;
+        var depthAt = new Dictionary<int, bool>();
+        foreach (var t in toks) { if (t.Kind == T.LB) brace++; else if (t.Kind == T.RB) brace--; else if (t.Kind == T.Semi) depthAt[t.Pos] = brace > 0; }
+        return Rebuild(s, toks, t =>
+        {
+            switch (t.Kind)
+            {
+                case T.Semi when semi && !depthAt[t.Pos]: return ",";
+                case T.Func:
+                    {
+                        string n = Parser.Normalize(t.Text);
+                        if (!Fns.Exists(n) && FunctionCatalog.EnglishOf(n) is { } en) return en;
+                        return null;
+                    }
+                case T.Name when t.Text.Equals("VERO", StringComparison.OrdinalIgnoreCase): return "TRUE";
+                case T.Name when t.Text.Equals("FALSO", StringComparison.OrdinalIgnoreCase): return "FALSE";
+                default: return null;
+            }
+        });
+    }
+
+    static bool HasListSemicolon(string s)
+    {
+        bool q = false; int brace = 0;
+        foreach (var c in s) { if (c == '"') q = !q; else if (!q) { if (c == '{') brace++; else if (c == '}') brace--; else if (c == ';' && brace == 0) return true; } }
+        return false;
+    }
+
+    static string ItalianDecimals(string s)
+    {
+        var sb = new StringBuilder(s.Length); bool q = false;
+        for (int i = 0; i < s.Length; i++)
+        {
+            char c = s[i];
+            if (c == '"') q = !q;
+            if (!q && c == ',' && i > 0 && i + 1 < s.Length && char.IsAsciiDigit(s[i - 1]) && char.IsAsciiDigit(s[i + 1])) sb.Append('.'); else sb.Append(c);
+        }
+        return sb.ToString();
+    }
+
     /// <summary>Forma utente → forma file: aggiunge _xlfn. alle funzioni moderne, maiuscolo sulle funzioni.</summary>
     public static string ToFile(string formula)
     {

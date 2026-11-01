@@ -64,6 +64,8 @@ public static class Icons
         ["plus"] = "M12 5v14 M5 12h14",
         ["minus"] = "M5 12h14",
         ["search"] = "M10.5 4a6.5 6.5 0 1 0 .01 0 M15.5 15.5L21 21",
+        ["shield"] = "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z M9 12l2 2 4-4",
+        ["restore"] = "M8 4h12v12 M4 8h12v12H4z",
         ["pdf"] = "M6 3h8l4 4v14H6z M14 3v4h4 M8.5 17v-4h2a1.5 1.5 0 0 1 0 3h-2",
     };
 

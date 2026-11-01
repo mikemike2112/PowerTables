@@ -6,6 +6,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using PowerTables.Core;
+using PowerTables.Core.Formulas;
 
 namespace PowerTables.App;
 
@@ -17,7 +18,7 @@ public partial class MainWindow
     readonly Dictionary<string, FrameworkElement> _tabContent = [];
     readonly Dictionary<string, ToggleButton> _tabButtons = [];
 
-    static readonly string[] TabNames = ["File", "Home", "Inserisci", "Disegno", "Layout di pagina", "Formule", "Dati", "Revisione", "Visualizza", "Automatizza", "Guida", "Powers"];
+    static readonly string[] TabNames = ["File", "Home", "Inserisci", "Layout di pagina", "Formule", "Dati", "Visualizza", "Automatizza", "Guida", "Powers"];
 
     Brush R(string k) => (Brush)FindResource(k);
 
@@ -28,7 +29,7 @@ public partial class MainWindow
         sp.Children.Add(Icons.Make(icon, 32));
         var tb = new TextBlock { Text = label + (drop ? " ▾" : ""), TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 78, FontSize = 12, FontFamily = new FontFamily("Segoe UI"), Margin = new Thickness(0, 2, 0, 0) };
         tb.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
-        sp.Children.Add(tb);
+        sp.Children.Add(tb); _pendingLabels.Add(tb);
         return Wrap(label, sp, act, tip, new Thickness(6, 4, 6, 2));
     }
 
@@ -40,7 +41,7 @@ public partial class MainWindow
         {
             var tb = new TextBlock { Text = label + (drop ? " ▾" : ""), FontSize = 12, FontFamily = new FontFamily("Segoe UI"), Margin = new Thickness(icon != null ? 6 : 0, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
             tb.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
-            sp.Children.Add(tb);
+            sp.Children.Add(tb); if (icon != null) _pendingLabels.Add(tb);
         }
         else if (drop) sp.Children.Add(new TextBlock { Text = "▾", FontSize = 9, Margin = new Thickness(2, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Foreground = R("TextDimBrush") });
         var el = Wrap(label.Length > 0 ? label : (tip ?? icon ?? ""), sp, act, tip, new Thickness(5, 2, 5, 2));
@@ -107,12 +108,18 @@ public partial class MainWindow
         dock.Children.Add(lab); dock.Children.Add(content);
         var b = new Border { BorderThickness = new Thickness(0, 0, 1, 0), Padding = new Thickness(4, 0, 4, 0), Child = dock };
         b.SetResourceReference(Border.BorderBrushProperty, "BorderBrush2");
+        _groupLabels[b] = [.. _pendingLabels]; _pendingLabels.Clear();
         return b;
     }
+
+    readonly List<TextBlock> _pendingLabels = [];
+    readonly Dictionary<Border, List<TextBlock>> _groupLabels = [];
+    readonly Dictionary<string, List<Border>> _tabGroups = [];
 
     FrameworkElement Tab(string name, params UIElement[] groups)
     {
         var sp = new StackPanel { Orientation = Orientation.Horizontal }.AddAll(groups);
+        _tabGroups[name] = groups.OfType<Border>().ToList();
         var sv = new ScrollViewer { Content = sp, HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
         sv.PreviewMouseWheel += (_, e) => { sv.ScrollToHorizontalOffset(sv.HorizontalOffset - e.Delta); e.Handled = true; };
         return sv;
@@ -132,11 +139,9 @@ public partial class MainWindow
         }
         _curBuildTab = "Home"; _tabContent["Home"] = BuildHome();
         _curBuildTab = "Inserisci"; _tabContent["Inserisci"] = BuildInsert();
-        _curBuildTab = "Disegno"; _tabContent["Disegno"] = Tab("Disegno", Group("Penne", Large("Penna", "fill", null), Large("Evidenziatore", "fill", null), Large("Gomma", "clear", null)));
         _curBuildTab = "Layout di pagina"; _tabContent["Layout di pagina"] = BuildLayout();
         _curBuildTab = "Formule"; _tabContent["Formule"] = BuildFormulas();
         _curBuildTab = "Dati"; _tabContent["Dati"] = BuildData();
-        _curBuildTab = "Revisione"; _tabContent["Revisione"] = Tab("Revisione", Group("Strumenti di correzione", Large("Controllo ortografia", "page", null), Large("Statistiche cartella di lavoro", "calc", null)), Group("Commenti", Large("Nuovo commento", "comment", null)), Group("Proteggi", Large("Proteggi foglio", "page", null), Large("Proteggi cartella di lavoro", "page", null)));
         _curBuildTab = "Visualizza"; _tabContent["Visualizza"] = BuildView();
         _curBuildTab = "Automatizza"; _tabContent["Automatizza"] = Tab("Automatizza", Group("Automatizza", Large("Nuovo script", "func", null), Large("Visualizza script", "page", null)));
         _curBuildTab = "Guida"; _tabContent["Guida"] = Tab("Guida", Group("Guida", Large("Informazioni su PowerTables", "page", () => ThemedDialog.Notify(this, "PowerTables - foglio di calcolo open source (MIT).\nFormato nativo .xlsx.", DialogIcon.Info, "Informazioni"))));
@@ -149,6 +154,7 @@ public partial class MainWindow
         _curTab = name;
         RibbonHost.Content = _tabContent[name];
         foreach (var kv in _tabButtons) kv.Value.IsChecked = kv.Key == name;
+        LayoutRibbon();
         // bordo del ribbon: #FF2400 con la scheda Powers
         RibbonOuter.BorderBrush = name == "Powers" ? R("PowersBrush") : R("BorderBrush2");
         RibbonOuter.BorderThickness = name == "Powers" ? new Thickness(2) : new Thickness(1);
@@ -218,14 +224,67 @@ public partial class MainWindow
         Group("Imposta pagina", Large("Margini", "page", null, true), Large("Orientamento", "page", null, true), Large("Dimensioni", "page", null, true), Large("Area di stampa", "print", null, true)),
         Group("Opzioni del foglio", Col(Check("Griglia: visualizza", Cur?.ShowGridLines ?? true, v => { Cur!.ShowGridLines = v; Cur.LayoutDirty = true; G.InvalidateVisual(); }), Check("Griglia: stampa", false, null))));
 
-    FrameworkElement BuildFormulas() => Tab("Formule",
-        Group("Libreria di funzioni", Large("Inserisci funzione", "func", null), Large("Somma automatica", "sigma", AutoSum, true), Large("Finanziarie", "func", null, true), Large("Logiche", "func", null, true), Large("Testo", "func", null, true), Large("Data e ora", "func", null, true)),
-        Group("Nomi definiti", Large("Gestione nomi", "names", null), Col(Small("Definisci nome", "names", null))),
-        Group("Verifica formule", Col(Small("Mostra formule", "func", () => { Wb.ShowFormulas = !Wb.ShowFormulas; G.InvalidateVisual(); }), Small("Controllo errori", "func", null))),
-        Group("Calcolo", Large("Opzioni di calcolo", "calc", null, true), Large("Calcola adesso", "calc", RecalcNow)));
+    FrameworkElement BuildFormulas()
+    {
+        FrameworkElement Cat(string cat, string label)
+        {
+            Button? b = null;
+            b = (Button)Large(label, "func", () => DropFunctions(b!, cat), true);
+            return b;
+        }
+        return Tab("Formule",
+            Group("Libreria di funzioni", Large("Inserisci funzione", "func", () => FunctionDialog()), Large("Somma automatica", "sigma", AutoSum), Cat("Finanziarie", "Finanziarie"), Cat("Logiche", "Logiche"), Cat("Testo", "Testo"), Cat("Data e ora", "Data e ora"), Cat("Ricerca e riferimento", "Ricerca e riferimento"), Cat("Matematiche", "Matematiche"), Cat("Statistiche", "Statistiche")),
+            Group("Nomi definiti", Large("Gestione nomi", "names", null), Col(Small("Definisci nome", "names", null))),
+            Group("Verifica formule", Col(Small("Mostra formule", "func", () => { Wb.ShowFormulas = !Wb.ShowFormulas; G.InvalidateVisual(); }))),
+            Group("Calcolo", Large("Calcola adesso", "calc", RecalcNow)));
+    }
+
+    /// <summary>Menu a discesa con le funzioni di una categoria: la scelta apre la modifica con =NOME( nella cella attiva.</summary>
+    void DropFunctions(Button anchor, string category)
+    {
+        var items = FunctionCatalog.All.Where(f => f.Category == category).Select(f => (f.It != f.En ? $"{f.En}  ·  {f.It}" : f.En, (Action)(() => InsertFunction(f.En)))).ToArray();
+        DropMenu(anchor, items);
+    }
+
+    /// <summary>Inserisce la funzione nella cella in modifica oppure avvia la modifica con "=NOME(".</summary>
+    void InsertFunction(string name)
+    {
+        if (Host.Editing) Host.BeginEditWith(name + "(");
+        else Host.BeginEdit(null, "=" + name + "(");
+        if (Host.Editing) Host.Editor.Focus();
+    }
+
+    /// <summary>Finestra "Inserisci funzione": ricerca per nome (inglese o italiano) o categoria.</summary>
+    void FunctionDialog()
+    {
+        var d = new ThemedDialog(this, "Inserisci funzione", "Cerca per nome o scegli una categoria.", DialogIcon.Info);
+        var search = new TextBox { Margin = new Thickness(0, 12, 0, 8), Padding = new Thickness(8, 6, 8, 6), FontSize = 13, FontFamily = new FontFamily("Segoe UI"), MinWidth = 420 };
+        search.SetResourceReference(Control.BackgroundProperty, "PanelAltBrush"); search.SetResourceReference(Control.ForegroundProperty, "TextBrush"); search.SetResourceReference(Control.BorderBrushProperty, "BorderBrush2");
+        AutomationProperties.SetAutomationId(search, "FuncSearch"); AutomationProperties.SetName(search, "Cerca funzione");
+        var list = new ListBox { Height = 220, FontFamily = new FontFamily("Segoe UI"), FontSize = 13 };
+        list.SetResourceReference(Control.BackgroundProperty, "PanelAltBrush"); list.SetResourceReference(Control.ForegroundProperty, "TextBrush"); list.SetResourceReference(Control.BorderBrushProperty, "BorderBrush2");
+        AutomationProperties.SetAutomationId(list, "FuncList");
+        List<FunctionCatalog.Entry> shown = [];
+        void Fill()
+        {
+            string q = search.Text.Trim();
+            shown = FunctionCatalog.All.Where(f => q.Length == 0 || f.En.Contains(q, StringComparison.OrdinalIgnoreCase) || f.It.Contains(q, StringComparison.OrdinalIgnoreCase) || f.Category.Contains(q, StringComparison.OrdinalIgnoreCase)).OrderBy(f => f.Category).ThenBy(f => f.En).ToList();
+            list.ItemsSource = shown.Select(f => $"{f.En}{(f.It != f.En ? "  ·  " + f.It : "")}    —    {f.Category}").ToList();
+            if (shown.Count > 0) list.SelectedIndex = 0;
+        }
+        search.TextChanged += (_, _) => Fill();
+        d.Body.Children.Add(search); d.Body.Children.Add(list);
+        d.AddButton("Annulla", "Cancel", cancel: true);
+        var ok = d.AddButton("Inserisci", "Insert", primary: true, close: false);
+        ok.Click += (_, _) => { if (list.SelectedIndex >= 0) { d.ResultId2 = shown[list.SelectedIndex].En; d.DialogResult = true; } };
+        list.MouseDoubleClick += (_, _) => ok.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        d.FocusFirst(search); Fill();
+        d.ShowDialog();
+        if (d.ResultId2 != null) InsertFunction(d.ResultId2);
+    }
 
     FrameworkElement BuildData() => Tab("Dati",
-        Group("Recupera e trasforma dati", Large("Da testo/CSV", "csv", ImportCsv), Large("Da Web", "page", null)),
+        Group("Recupera e trasforma dati", Large("Da testo/CSV", "csv", ImportCsv)),
         Group("Ordina e filtra", Col(Small("Ordina dalla A alla Z", "sortaz", () => DoSort(true)), Small("Ordina dalla Z alla A", "sortza", () => DoSort(false))), Large("Filtro", "filter", ToggleFilter), Col(Small("Cancella", "clear", () => { if (Cur.Filter != null) Wb.ClearAutoFilter(Cur); }), Small("Riapplica", "filter", () => { Wb.ReapplyFilter(Cur, Ci); G.RelayoutAll(); }), Small("Avanzate", "filter", null))),
         Group("Strumenti dati", Large("Testo in colonne", "table", null), Large("Rimuovi duplicati", "table", null), Large("Convalida dati", "table", null)),
         Group("Previsione", Large("Analisi di simulazione", "chart", null, true), Large("Foglio previsione", "chart", null)));
@@ -251,9 +310,13 @@ public partial class MainWindow
         var lab = new TextBlock { Text = "Modalità scura", FontSize = 12, FontFamily = new FontFamily("Segoe UI"), VerticalAlignment = VerticalAlignment.Center };
         lab.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
         _commands.Add(("Modalità scura", "Powers", () => { sw.IsChecked = !sw.IsChecked; SetDark(sw.IsChecked == true); }));
+        _pendingLabels.Clear();
         var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(6, 20, 6, 0) };
         row.Children.Add(Icons.Make("moon", 22)); row.Children.Add(new Border { Width = 8 }); row.Children.Add(lab); row.Children.Add(sw);
-        return Tab("Powers", Group("Aspetto", row));
+        var aspetto = Group("Aspetto", row);
+        _curBuildTab = "Powers";
+        var privacy = Group("Privacy", Large("Scudo privacy", "shield", PrivacyShieldDialog, tip: "Analizza il file salvato e crea una copia senza dati personali"));
+        return Tab("Powers", aspetto, privacy);
     }
     ToggleButton? _darkToggle;
 
