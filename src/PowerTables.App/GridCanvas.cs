@@ -669,7 +669,7 @@ public sealed class GridCanvas : FrameworkElement
         switch (d)
         {
             case Drag.ResizeCol:
-                { double w = Sheet.Cols[_resizeIdx].Width; Sheet.ColInfoFor(_resizeIdx).Width = _resizeOrig / GridMetrics.CharPx; Wb.SetColWidth(Sheet, _resizeIdx, w); break; }
+                { double w = Sheet.Cols[_resizeIdx].Width * GridMetrics.CharPx; Sheet.ColInfoFor(_resizeIdx).Width = _resizeOrig / GridMetrics.CharPx; Wb.SetColWidth(Sheet, _resizeIdx, (w - 5) / GridMetrics.CharPx); break; }
             case Drag.ResizeRow:
                 { double h = Sheet.Rows[_resizeIdx].Height ?? 15; Sheet.RowInfoFor(_resizeIdx).Height = null; Sheet.RowInfoFor(_resizeIdx).CustomHeight = false; Wb.SetRowHeight(Sheet, _resizeIdx, h); break; }
             case Drag.Fill:
@@ -710,6 +710,6 @@ public sealed class GridCanvas : FrameworkElement
             var xf = Wb.Styles.Get(kv.Value.Style);
             max = Math.Max(max, Fmt(t, xf, Colors.Black, 0).Width);
         }
-        if (max > 0) Wb.SetColWidth(Sheet, c, Math.Min(255, (max + 10) / GridMetrics.CharPx));
+        if (max > 0) Wb.SetColWidth(Sheet, c, Math.Min(255, (max + 5) / GridMetrics.CharPx));
     }
 }

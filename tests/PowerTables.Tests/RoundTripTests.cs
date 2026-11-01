@@ -221,6 +221,7 @@ public class RoundTripTests(RtFixture fx)
         var os = o.GetProperty("sheets"); var ss = s.GetProperty("sheets");
         Assert.True(os.GetArrayLength() == ss.GetArrayLength(), $"{f}: numero fogli diverso");
         Assert.Equal(o.GetProperty("date1904").GetBoolean(), s.GetProperty("date1904").GetBoolean());
+        Assert.Equal(o.GetProperty("freeze").ToString(), s.GetProperty("freeze").ToString());
         Assert.Equal(o.GetProperty("names").GetArrayLength(), s.GetProperty("names").GetArrayLength());
         for (int i = 0; i < os.GetArrayLength(); i++)
         {
