@@ -14,6 +14,8 @@ public enum DialogIcon { Info, Warning, Error, Question }
 public sealed class ThemedDialog : Window
 {
     public string ResultId { get; private set; } = "";
+    /// <summary>Valore scelto da dialoghi con elenco (es. nome funzione).</summary>
+    public string? ResultId2;
     readonly StackPanel _body = new();
     readonly StackPanel _buttons = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 18, 0, 0) };
     public readonly List<Button> Buttons = [];

@@ -48,6 +48,10 @@ public partial class MainWindow
         // pulsanti finestra
         WinButtons.Children.Add(CaptionBtn("M5 12h14", "Riduci a icona", () => WindowState = WindowState.Minimized));
         _maxBtn = CaptionBtn("M6 6h12v12H6z", "Ingrandisci", ToggleMax); WinButtons.Children.Add(_maxBtn);
+        StateChanged += (_, _) => UpdateMaxButton();
+        Loaded += (_, _) => { UpdateMaxButton(); ApplyResponsive(); };
+        SizeChanged += (_, _) => ApplyResponsive();
+        RibbonOuter.SizeChanged += (_, _) => LayoutRibbon();
         WinButtons.Children.Add(CaptionBtn("M6 6l12 12 M18 6L6 18", "Chiudi", Close));
         // barra della formula: annulla/conferma
         FormulaButtons.Children.Add(Glyph("close", "Annulla modifica", () => { Host.Cancel(); RefreshBar(); }, 14));
@@ -71,11 +75,112 @@ public partial class MainWindow
         if (_hooks) { Topmost = true; Probe.Visibility = Visibility.Visible; Probe.Opacity = 0; Probe.Width = 1; Probe.Height = 1; Probe.HorizontalAlignment = HorizontalAlignment.Left; }
     }
 
-    Button CaptionBtn(string path, string tip, Action act)
+    static FrameworkElement GlyphOf(string path)
     {
         var p = new Path { Data = Geometry.Parse(path), StrokeThickness = 1.4, Fill = Brushes.Transparent };
         p.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "TextBrush");
-        var b = new Button { Content = new Viewbox { Width = 14, Height = 14, Child = new Canvas { Width = 24, Height = 24, Children = { p } } }, Width = 46, Height = 34, ToolTip = tip, Margin = new Thickness(0) };
+        return new Viewbox { Width = 14, Height = 14, Child = new Canvas { Width = 24, Height = 24, Children = { p } } };
+    }
+
+    /// <summary>Un quadrato quando si può ingrandire, due quadrati sovrapposti quando si può ripristinare la finestra.</summary>
+    void UpdateMaxButton()
+    {
+        if (_maxBtn == null) return;
+        bool max = WindowState == WindowState.Maximized;
+        _maxBtn.Content = GlyphOf(max ? "M8 4h12v12 M4 8h12v12H4z" : "M6 6h12v12H6z");
+        string tip = max ? "Ripristina giù" : "Ingrandisci";
+        _maxBtn.ToolTip = tip; AutomationProperties.SetName(_maxBtn, tip);
+    }
+
+    // ---------- adattamento alla larghezza ----------
+    Button? _tabOverflow; readonly Popup _tabPop = new() { StaysOpen = false, AllowsTransparency = true, Placement = PlacementMode.Bottom };
+    Button? _ribbonOverflow; readonly Popup _ribbonPop = new() { StaysOpen = false, AllowsTransparency = true, Placement = PlacementMode.Bottom };
+    readonly StackPanel _ribbonPopPanel = new();
+
+    void ApplyResponsive()
+    {
+        if (!IsLoaded || TabStrip.Children.Count == 0) return;
+        double w = ActualWidth;
+        SearchBorder.Width = Math.Clamp(w - 640, 0, 460);
+        SearchBorder.Visibility = SearchBorder.Width < 110 ? Visibility.Collapsed : Visibility.Visible;
+        DocTitle.MaxWidth = Math.Clamp(w - 560, 0, 420); DocTitle.TextTrimming = TextTrimming.CharacterEllipsis;
+        DocTitle.Visibility = DocTitle.MaxWidth < 60 ? Visibility.Collapsed : Visibility.Visible;
+        // schede: quelle che non entrano finiscono nel menu "⋯"
+        if (_tabOverflow == null)
+        {
+            _tabOverflow = new Button { Content = "⋯", ToolTip = "Altre schede", Padding = new Thickness(10, 4, 10, 4), VerticalAlignment = VerticalAlignment.Center };
+            AutomationProperties.SetName(_tabOverflow, "Altre schede"); AutomationProperties.SetAutomationId(_tabOverflow, "TabOverflow");
+            _tabOverflow.Click += (_, _) => ShowTabOverflow();
+            TabStrip.Children.Add(_tabOverflow);
+        }
+        var tabs = TabStrip.Children.OfType<ToggleButton>().ToList();
+        foreach (var t in tabs) t.Visibility = Visibility.Visible;
+        _tabOverflow.Visibility = Visibility.Collapsed;
+        double avail = w - 30 - 100;
+        double acc = 0; int firstHidden = -1;
+        for (int i = 0; i < tabs.Count; i++) { tabs[i].Measure(new Size(double.PositiveInfinity, 40)); acc += tabs[i].DesiredSize.Width; if (acc > avail - 46 && firstHidden < 0) firstHidden = i; }
+        if (acc > avail && firstHidden >= 0)
+        {
+            for (int i = firstHidden; i < tabs.Count; i++) tabs[i].Visibility = Visibility.Collapsed;
+            _tabOverflow.Visibility = Visibility.Visible;
+        }
+        LayoutRibbon();
+    }
+
+    void ShowTabOverflow()
+    {
+        var sp = new StackPanel { Margin = new Thickness(2) };
+        foreach (var t in TabStrip.Children.OfType<ToggleButton>().Where(t => t.Visibility == Visibility.Collapsed))
+        {
+            string n = (string)t.Content;
+            var b = new Button { Content = n, MinWidth = 180, HorizontalContentAlignment = HorizontalAlignment.Left };
+            AutomationProperties.SetName(b, "Scheda " + n);
+            b.Click += (_, _) => { _tabPop.IsOpen = false; if (n == "File") ShowBackstage(true); else ShowTab(n); };
+            sp.Children.Add(b);
+        }
+        _tabPop.Child = new Border { Background = R("PanelBrush"), BorderBrush = R("AccentBrush"), BorderThickness = new Thickness(1), Child = sp };
+        _tabPop.PlacementTarget = _tabOverflow; _tabPop.IsOpen = true;
+    }
+
+    /// <summary>Ribbon: prima i gruppi si compattano (solo icone), poi i gruppi in più vanno in un menu a discesa.</summary>
+    void LayoutRibbon()
+    {
+        if (!IsLoaded || !_tabGroups.TryGetValue(_curTab, out var groups) || RibbonHost.Content is not ScrollViewer sv || sv.Content is not StackPanel sp) return;
+        _ribbonPop.IsOpen = false;
+        _ribbonPopPanel.Children.Clear();
+        sp.Children.Clear();
+        foreach (var g in groups) { sp.Children.Add(g); SetLabels(g, true); }
+        double avail = Math.Max(120, RibbonOuter.ActualWidth - 24);
+        double Width() { sp.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity)); return sp.DesiredSize.Width; }
+        if (Width() <= avail) return;
+        for (int i = groups.Count - 1; i >= 0 && Width() > avail; i--) SetLabels(groups[i], false);
+        if (Width() <= avail) return;
+        _ribbonOverflow ??= MakeRibbonOverflow();
+        sp.Children.Add(_ribbonOverflow);
+        for (int i = groups.Count - 1; i > 0 && Width() > avail; i--)
+        {
+            sp.Children.Remove(groups[i]); SetLabels(groups[i], true); _ribbonPopPanel.Children.Insert(0, groups[i]);
+        }
+    }
+
+    Button MakeRibbonOverflow()
+    {
+        var b = new Button { Content = "»", ToolTip = "Altri comandi", Padding = new Thickness(12, 4, 12, 4), VerticalAlignment = VerticalAlignment.Center, FontSize = 16 };
+        AutomationProperties.SetName(b, "Altri comandi"); AutomationProperties.SetAutomationId(b, "RibbonOverflow");
+        _ribbonPop.Child = new Border { Background = R("PanelBrush"), BorderBrush = R("AccentBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), Child = new ScrollViewer { Content = _ribbonPopPanel, MaxHeight = 420, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } };
+        b.Click += (_, _) => { _ribbonPop.PlacementTarget = b; _ribbonPop.IsOpen = true; };
+        return b;
+    }
+
+    void SetLabels(Border g, bool visible)
+    {
+        if (!_groupLabels.TryGetValue(g, out var l)) return;
+        foreach (var t in l) t.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    Button CaptionBtn(string path, string tip, Action act)
+    {
+        var b = new Button { Content = GlyphOf(path), Width = 46, Height = 34, ToolTip = tip, Margin = new Thickness(0) };
         b.SetValue(AutomationProperties.NameProperty, tip);
         b.Click += (_, _) => act();
         return b;

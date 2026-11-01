@@ -24,6 +24,11 @@ public sealed class GridCanvas : FrameworkElement
     public event Action<char?>? EditRequested;      // tasto digitato o F2/doppio click
     public event Action? CopyRequested, CutRequested, PasteRequested;
 
+    // modifica di formule: riferimenti evidenziati e inoltro di clic/trascinamento alla modifica in corso
+    public Func<int, int, bool>? PointClick; public Action<int, int>? PointDrag; public Func<bool>? EditingFormula;
+    List<(int R1, int C1, int R2, int C2, Color Color)> _editRefs = [];
+    public List<(int R1, int C1, int R2, int C2, Color Color)> EditRefs { set { _editRefs = value; InvalidateVisual(); } }
+
     ClipData? _clipRect;     // formiche in marcia
     public ClipData? Marching { get => _clipRect; set { _clipRect = value; InvalidateVisual(); } }
 
@@ -248,6 +253,11 @@ public sealed class GridCanvas : FrameworkElement
 
         // 5) selezione
         DrawSelection(dc, q);
+        foreach (var (er1, ec1, er2, ec2, col) in _editRefs)
+        {
+            var rr = RangeRect(er1, ec1, er2, ec2, q);
+            if (rr.HasValue) dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(0x1c, col.R, col.G, col.B)), new Pen(Theme.Brush(col), 2), new Rect(rr.Value.X + 1, rr.Value.Y + 1, Math.Max(0, rr.Value.Width - 2), Math.Max(0, rr.Value.Height - 2)));
+        }
         if (_clipRect != null && ReferenceEquals(_clipRect.Source, Sheet))
         {
             var pen = new Pen(Theme.Brush(Theme.Accent), 1.5) { DashStyle = DashStyles.Dash };
@@ -560,7 +570,7 @@ public sealed class GridCanvas : FrameworkElement
         });
     }
 
-    enum Drag { None, Select, ColHeader, RowHeader, ResizeCol, ResizeRow, Fill }
+    enum Drag { None, Point, Select, ColHeader, RowHeader, ResizeCol, ResizeRow, Fill }
     Drag _drag; int _resizeIdx; double _resizeStart, _resizeOrig; int _fillR1, _fillC1, _fillR2, _fillC2;
 
     Rect? FillHandleRect()
@@ -575,8 +585,14 @@ public sealed class GridCanvas : FrameworkElement
     {
         base.OnMouseDown(e);
         if (Wb == null) return;
-        Focus();
         var p = e.GetPosition(this);
+        if (e.ChangedButton == MouseButton.Left && EditingFormula?.Invoke() == true)
+        {
+            // formula in modifica: il clic non deve confermare per sbaglio; nelle celle inserisce/aggiorna il riferimento
+            if (p.X <= HeaderW || p.Y <= HeaderH) { e.Handled = true; return; }
+            if (PointClick?.Invoke(RowAtY(p.Y), ColAtX(p.X)) == true) { _drag = Drag.Point; CaptureMouse(); e.Handled = true; return; }
+        }
+        Focus();
         bool shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
         if (e.ChangedButton != MouseButton.Left) { if (e.ChangedButton == MouseButton.Right) { var (r, c) = (RowAtY(p.Y), ColAtX(p.X)); var s = Selection; if (p.X > HeaderW && p.Y > HeaderH && !(r >= s.R1 && r <= s.R2 && c >= s.C1 && c <= s.C2)) Select(r, c); } return; }
         // maniglia di riempimento
@@ -619,6 +635,13 @@ public sealed class GridCanvas : FrameworkElement
         var p = e.GetPosition(this);
         switch (_drag)
         {
+            case Drag.Point:
+                {
+                    AutoScroll(p);
+                    int r = RowAtY(Math.Clamp(p.Y, HeaderH + 1, Math.Max(HeaderH + 2, ActualHeight - 1))), c = ColAtX(Math.Clamp(p.X, HeaderW + 1, Math.Max(HeaderW + 2, ActualWidth - 1)));
+                    PointDrag?.Invoke(r, c);
+                    break;
+                }
             case Drag.None:
                 if (p.Y < HeaderH && p.X > HeaderW && Math.Abs(p.X - (XOf(ColAtX(p.X)) + M.ColW(ColAtX(p.X)))) <= 4) Cursor = Cursors.SizeWE;
                 else if (p.X < HeaderW && p.Y > HeaderH && Math.Abs(p.Y - (YOf(RowAtY(p.Y)) + M.RowH(RowAtY(p.Y)))) <= 4) Cursor = Cursors.SizeNS;

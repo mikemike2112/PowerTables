@@ -8,7 +8,7 @@ using PowerTables.Core;
 namespace PowerTables.App;
 
 /// <summary>Contiene la griglia, le barre di scorrimento e l'editor in cella.</summary>
-public sealed class GridHost : Grid
+public sealed partial class GridHost : Grid
 {
     public readonly GridCanvas Canvas = new();
     readonly Grid _zoomGrid = new() { ClipToBounds = true };
@@ -39,7 +39,8 @@ public sealed class GridHost : Grid
         _h.Scroll += (_, _) => { if (!_sync) Canvas.SetScroll(_h.Value, Canvas.ScrollY); };
         SizeChanged += (_, _) => UpdateBars();
         Editor.PreviewKeyDown += EditorKey;
-        Editor.TextChanged += (_, _) => { if (Editing) EditTextChanged?.Invoke(Editor.Text); };
+        Editor.TextChanged += (_, _) => { if (Editing) { EditTextChanged?.Invoke(Editor.Text); OnEditorTextChanged(); } };
+        InitFormulaEditing();
         Editor.LostKeyboardFocus += (_, e) => { if (Editing && !IsAncestorOf(e.NewFocus as DependencyObject) && !FormulaBarFocused) Commit(0, 0); };
         Canvas.EditRequested += c => BeginEdit(c);
         Canvas.ViewChanged += PositionEditor;
@@ -76,7 +77,7 @@ public sealed class GridHost : Grid
     }
 
     /// <summary>Avvia la modifica; ch = primo carattere digitato (sostituisce il contenuto) o null per modificare l'esistente.</summary>
-    public void BeginEdit(char? ch)
+    public void BeginEdit(char? ch, string? initial = null)
     {
         if (Canvas.Sheet == null) return;
         _editR = Canvas.ActiveRow; _editC = Canvas.ActiveCol;
@@ -84,7 +85,7 @@ public sealed class GridHost : Grid
         Editor.Background = Theme.Brush(Theme.CellBg); Editor.Foreground = Theme.Brush(Theme.CellText); Editor.BorderBrush = Theme.Brush(Theme.Accent);
         Editor.CaretBrush = Theme.Brush(Theme.CellText);
         Editing = true;
-        Editor.Text = ch is { } c ? c.ToString() : Canvas.Wb.EditText(Canvas.Sheet, _editR, _editC, Canvas.Culture);
+        Editor.Text = initial ?? (ch is { } c ? c.ToString() : Canvas.Wb.EditText(Canvas.Sheet, _editR, _editC, Canvas.Culture));
         _overlay.IsHitTestVisible = true;
         PositionEditor();
         Editor.Visibility = Visibility.Visible;
@@ -126,10 +127,11 @@ public sealed class GridHost : Grid
         EndEditUi(); Canvas.Focus(); EditEnded?.Invoke();
     }
 
-    void EndEditUi() { Editing = false; Editor.Visibility = Visibility.Collapsed; _overlay.IsHitTestVisible = false; }
+    void EndEditUi() { EndFormulaEditing(); Editing = false; Editor.Visibility = Visibility.Collapsed; _overlay.IsHitTestVisible = false; }
 
     void EditorKey(object s, KeyEventArgs e)
     {
+        if (FormulaKey(e)) { e.Handled = true; return; }
         switch (e.Key)
         {
             case Key.Enter: Commit((Keyboard.Modifiers & ModifierKeys.Shift) != 0 ? -1 : 1, 0); e.Handled = true; break;
