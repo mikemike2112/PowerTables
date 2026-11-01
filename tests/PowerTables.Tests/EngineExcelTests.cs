@@ -9,8 +9,25 @@ namespace PowerTables.Tests;
 public class EngineExcelTests
 {
     static string CasesTxt => Path.Combine(TestUtil.Root, "tests", "PowerTables.Tests", "engine-cases.txt");
-    static string Xlsx => TestUtil.Corpus("engine", "engine-cases.xlsx");
-    static string Expected => TestUtil.Corpus("engine", "engine-expected.json");
+    // i file generati stanno in tests/work (ignorata da git): il repository non viene modificato dai test
+    static string WorkDir => Path.Combine(TestUtil.Root, "tests", "work", "engine");
+    static string Xlsx => Path.Combine(WorkDir, "engine-cases.xlsx");
+    static string Expected => Path.Combine(WorkDir, "engine-expected.json");
+    static readonly object Gen = new(); static bool _generated;
+
+    /// <summary>Genera il file e fa calcolare ogni formula da Excel vero, una sola volta per esecuzione.</summary>
+    static void EnsureGenerated()
+    {
+        lock (Gen)
+        {
+            if (_generated) return;
+            Directory.CreateDirectory(WorkDir);
+            XlsxWriter.Save(BuildWorkbook(), Xlsx);
+            var (code, outp) = TestUtil.Ps("excel-dump.ps1", "-Path", Xlsx, "-Out", Expected, "-Recalc");
+            Assert.True(code == 0, outp);
+            _generated = true;
+        }
+    }
 
     static string[] Cases() => File.ReadAllLines(CasesTxt).Where(l => l.Length > 0 && !l.StartsWith('#')).ToArray();
 
@@ -39,17 +56,12 @@ public class EngineExcelTests
     }
 
     [Fact, Trait("Category", "OfficeCom")]
-    public void GenerateExpectedFromExcel()
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(Xlsx)!);
-        XlsxWriter.Save(BuildWorkbook(), Xlsx);
-        var (code, outp) = TestUtil.Ps("excel-dump.ps1", "-Path", Xlsx, "-Out", Expected, "-Recalc");
-        Assert.True(code == 0, outp);
-    }
+    public void GenerateExpectedFromExcel() => EnsureGenerated();
 
     [Fact]
     public void EngineMatchesExcel()
     {
+        EnsureGenerated();
         var cases = Cases();
         using var exp = TestUtil.ReadJson(Expected);
         var tsheet = exp.RootElement.GetProperty("sheets").EnumerateArray().First(s => s.GetProperty("name").GetString() == "T");
@@ -73,7 +85,7 @@ public class EngineExcelTests
             if (mine is string sm && e.GetProperty("t").GetString() == "s" && sm == e.GetProperty("v").GetString()!.Replace(',', '.').Replace("VERO", "TRUE").Replace("FALSO", "FALSE")) { localeDiff++; continue; }
             bad.Add($"{cases[i]}  =>  mio {m}  |  Excel {x}");
         }
-        File.WriteAllLines(Path.Combine(TestUtil.Root, "tests", "work", "engine-mismatch.txt"), bad);
+        File.WriteAllLines(Path.Combine(WorkDir, "engine-mismatch.txt"), bad);
         Assert.True(bad.Count == 0, $"{bad.Count}/{cases.Length} differenze (ok {ok}, locale {localeDiff}):\n" + string.Join("\n", bad.Take(60)));
     }
 

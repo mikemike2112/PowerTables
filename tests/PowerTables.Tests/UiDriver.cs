@@ -19,7 +19,14 @@ public sealed class UiDriver : IDisposable
     [DllImport("user32.dll")] static extern uint SendInput(uint n, INPUT[] i, int size);
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
     [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
-    void EnsureFocus() { if (GetForegroundWindow() != Proc.MainWindowHandle) { SetForegroundWindow(Proc.MainWindowHandle); Thread.Sleep(250); } }
+    /// <summary>Porta l'app in primo piano e attende (su condizione, max 5 s) che lo sia davvero; l'app di test è anche Topmost.</summary>
+    void EnsureFocus()
+    {
+        for (int i = 0; i < 25 && GetForegroundWindow() != Proc.MainWindowHandle; i++)
+        {
+            SetForegroundWindow(Proc.MainWindowHandle); Thread.Sleep(200);
+        }
+    }
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
     [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint f);
     [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
@@ -82,7 +89,7 @@ public sealed class UiDriver : IDisposable
     {
         string cur = "", hist = "";
         for (int i = 0; i < 30; i++) { if (TryProbe(out var p) && (cur = p.GetValueOrDefault(key, "")) == value) return; hist += cur + (p.Count > 0 ? "[" + p.GetValueOrDefault("sel") + "|" + p.GetValueOrDefault("active") + "]" : "?") + ","; Thread.Sleep(200); }
-        Assert.True(false, $"{key}: atteso {value}, storia {hist}");
+        Assert.Fail($"{key}: atteso {value}, storia {hist}");
     }
 
     /// <summary>Rilegge il dump finché la condizione è vera (fino a 6 s): l'app scrive il file a ogni modifica, in modo asincrono rispetto al test.</summary>

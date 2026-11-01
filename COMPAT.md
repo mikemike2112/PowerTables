@@ -24,10 +24,10 @@ Note sul round-trip:
 - Un salvataggio senza modifiche non tocca nessuna parte foglio: cambiano solo la serializzazione di `[Content_Types].xml` e dei `.rels` fatta dall'SDK
   (Default/Override riorganizzati, target relativi → assoluti): significato identico, verificato risolvendo tipi e target.
 - Salvataggio con modifica: si riscrivono solo le righe toccate; le altre righe del foglio sono copiate byte per byte; `<cols>`, unioni, riquadri e filtri sono rigenerati solo se modificati.
-  Se una formula è cambiata viene eliminata `calcChain.xml` (Excel la ricostruisce). Osservato: dopo questa rimozione Excel rimisura le righe con testo a capo non personalizzate.
+  Se una formula è cambiata viene eliminata `calcChain.xml` (Excel la ricostruisce). Misurato con Excel vero (`format-alignment-wrap.xlsx`): la rimozione di `calcChain` non c'entra, anche una modifica di solo valore in una riga nuova fa rimisurare a Excel le righe con testo a capo senza `customHeight` (altezza 100,8 salvata da Excel con colonna ancora larga → 57,6 reale con larghezza 14,77); le righe con altezza personalizzata restano invariate. Non altera il contenuto.
 - Formule matriciali (CSE), tabelle dati e formule dinamiche (Formula2/array dinamici, `cm=`) sono conservate come XML originale con il valore in cache e non vengono ricalcolate.
   Le celle "spill" sono valori normali. Formule con sintassi non gestita (es. riferimenti strutturati `Tabella[[#This Row],[Col]]`) o funzioni non implementate conservano formula e valore in cache.
-- Righe riscritte: le stringhe diventano `inlineStr` (niente testo ricco né sst per quelle righe); attributi di cella sconosciuti diversi da `cm`/`vm` nelle righe riscritte non sono preservati.
+- Righe riscritte: le stringhe diventano `inlineStr`; il testo ricco (runs formattati) delle celle il cui testo non cambia viene riscritto identico dentro `<is>` (test `RichText_SurvivesEditOfAnotherCellInTheSameRow` su Excel vero: formattazione di primo e ultimo carattere uguale prima/dopo; senza la correzione il test fallisce). Limite: se una cella a testo ricco viene spostata (es. ordinamento) la formattazione dei runs si perde; attributi di cella sconosciuti diversi da `cm`/`vm` nelle righe riscritte non sono preservati.
 - Salvataggio atomico (file temporaneo + `File.Replace`).
 
 ## Motore formule contro Excel vero

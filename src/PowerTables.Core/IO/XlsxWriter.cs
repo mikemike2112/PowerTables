@@ -49,7 +49,8 @@ public static class XlsxWriter
         }
         sh.PartId = wbp.GetIdOfPart(wsp);
         sh.OrigName = sh.Name;
-        var sheets = wbp.Workbook.Sheets ??= new Sheets();
+        var wbRoot = wbp.Workbook ?? throw new XlsxException("workbook.xml assente o illeggibile");
+        var sheets = wbRoot.Sheets ??= new Sheets();
         uint id = sheets.Elements<DocumentFormat.OpenXml.Spreadsheet.Sheet>().Select(x => x.SheetId?.Value ?? 0).DefaultIfEmpty(0u).Max() + 1;
         sheets.Append(new DocumentFormat.OpenXml.Spreadsheet.Sheet { Name = sh.Name, SheetId = id, Id = sh.PartId });
         sh.DirtyRows.Add(1);
@@ -61,16 +62,17 @@ public static class XlsxWriter
         var st = wb.Pkg ?? throw new InvalidOperationException("nessun package");
         var wbp = st.Doc.WorkbookPart!;
         // nuovi fogli e rinomine
+        var wbRoot = wbp.Workbook ?? throw new XlsxException("workbook.xml assente o illeggibile");
         bool wbChanged = false;
         foreach (var sh in wb.Sheets)
         {
             if (sh.PartId == null) { wb.AddSheetPartFor(sh); wbChanged = true; }
             if (sh.OrigName == sh.Name) continue;
-            var el = wbp.Workbook.Sheets!.Elements<DocumentFormat.OpenXml.Spreadsheet.Sheet>().FirstOrDefault(x => x.Id?.Value == sh.PartId);
+            var el = wbRoot.Sheets?.Elements<DocumentFormat.OpenXml.Spreadsheet.Sheet>().FirstOrDefault(x => x.Id?.Value == sh.PartId);
             if (el != null && el.Name?.Value != sh.Name) { el.Name = sh.Name; wbChanged = true; }
             sh.OrigName = sh.Name;
         }
-        if (wbChanged) wbp.Workbook.Save();
+        if (wbChanged) wbRoot.Save();
 
         foreach (var sh in wb.Sheets)
         {
@@ -234,11 +236,11 @@ public static class XlsxWriter
         }
         if (cells.Count == 0) { sb.Append("/>"); return; }
         sb.Append('>');
-        foreach (var (col, c) in cells) WriteCell(sb, row, col, c, p);
+        foreach (var (col, c) in cells) WriteCell(sb, row, col, c, p, sh);
         sb.Append('<').Append('/').Append(p).Append("row>");
     }
 
-    static void WriteCell(StringBuilder sb, int row, int col, in Cell c, string p)
+    static void WriteCell(StringBuilder sb, int row, int col, in Cell c, string p, Sheet sh)
     {
         sb.Append('<').Append(p).Append("c r=\"").Append(Addr.ColName(col)).Append(row).Append('"');
         if (c.Style != 0) sb.Append(" s=\"").Append(c.Style).Append('"');
@@ -259,6 +261,7 @@ public static class XlsxWriter
             case CellKind.Err: sb.Append('<').Append(p).Append("v>").Append(Errors.Text((CellError)(int)c.Num)).Append("</").Append(p).Append("v>"); break;
             case CellKind.Str:
                 if (c.F != null) sb.Append('<').Append(p).Append("v>").Append(Esc((string?)c.Obj ?? "")).Append("</").Append(p).Append("v>");
+                else if (sh.Rich.TryGetValue(Addr.Key(row, col), out var rt) && rt.Plain == (string?)c.Obj) sb.Append('<').Append(p).Append("is>").Append(rt.Xml).Append("</").Append(p).Append("is>");
                 else sb.Append('<').Append(p).Append("is><").Append(p).Append("t xml:space=\"preserve\">").Append(Esc((string?)c.Obj ?? "")).Append("</").Append(p).Append("t></").Append(p).Append("is>"); // ponytail: stringhe scritte inline, niente rich text né sst per le righe riscritte
                 break;
         }

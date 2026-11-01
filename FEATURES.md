@@ -50,3 +50,7 @@ Non è stato possibile pilotare la UI con mouse/tastiera in modo automatico (nie
 ## Inserisci / Layout / Revisione / Disegno
 - [ ] P1 Grafici, immagini, forme, tabelle pivot, commenti, collegamenti: **conservati intatti nel file** (round-trip provato), non creabili né visibili nell'app
 - [ ] P2 Pivot, Power Query, macro (nessuna esecuzione di contenuto attivo), revisione, input penna
+
+## Stato round-trip (aggiornamento)
+- [x] Testo ricco delle celle conservato al salvataggio anche nelle righe riscritte (test su Excel vero).
+- I test UI con input reale (UiTests) sono ora con finestra Topmost e ripetizioni su condizione: 3 esecuzioni consecutive isolate 3/3; nella suite completa ne è fallito uno su una singola esecuzione (vedi report).

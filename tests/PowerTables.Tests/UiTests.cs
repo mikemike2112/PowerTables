@@ -6,7 +6,8 @@ namespace PowerTables.Tests;
 [Collection("UiCollection"), Trait("Category", "Ui")]
 public class UiTests
 {
-    static string Docs(string n) => Path.Combine(TestUtil.Root, "docs", n);
+    // le catture vanno in tests/work; vengono copiate in docs/ (per il README) solo con PT_UPDATE_DOCS=1, così git status resta pulito
+    static string Docs(string n) => Path.Combine(TestUtil.Root, Environment.GetEnvironmentVariable("PT_UPDATE_DOCS") == "1" ? "docs" : Path.Combine("tests", "work", "docs"), n);
 
     static string Cell(JsonElement d, string a) => d.GetProperty("cells").TryGetProperty(a, out var c) ? c.GetProperty("text").GetString()! : "";
 
@@ -58,20 +59,23 @@ public class UiTests
         Assert.Equal("10", Cell(d, "A1")); Assert.Equal("30", Cell(d, "A3"));
         Assert.Equal("=A1+A2", d.GetProperty("cells").GetProperty("A3").GetProperty("f").GetString());
         // copia/incolla con adattamento della formula
-        ui.ClickCell(3, 1); ui.Key("^c"); ui.ClickCell(3, 2); ui.Key("^v");
-        d = ui.DumpUntil(x => x.GetProperty("cells").TryGetProperty("B3", out _));
+        ui.Retry(() => { ui.ClickCell(3, 1); ui.Key("^c"); ui.ClickCell(3, 2); ui.Key("^v"); }, () => ui.Dump().GetProperty("cells").TryGetProperty("B3", out var b3) && b3.GetProperty("f").GetString() == "=B1+B2");
+        d = ui.Dump();
         Assert.Equal("=B1+B2", d.GetProperty("cells").GetProperty("B3").GetProperty("f").GetString());
         // modifica della formula dalla barra della formula
         ui.ClickCell(3, 1);
         Assert.Equal("=A1+A2", ui.Probe()["bar"]);
         // riempimento: seleziono A1:A2 e trascino la maniglia fino alla riga 6
-        var (x1, y1) = ui.CellCenter(1, 1); var (x2, y2) = ui.CellCenter(2, 1);
-        ui.DragFrom(x1, y1, x2, y2);
-        Assert.Equal("1,1,2,1", ui.Probe()["sel"]);
-        var p = ui.Probe(); var o = p["origin"].Split(','); double s = double.Parse(p["scale"], System.Globalization.CultureInfo.InvariantCulture);
-        int hx = (int)(double.Parse(o[0], System.Globalization.CultureInfo.InvariantCulture) + (50 + 64 - 2) * s), hy = (int)(double.Parse(o[1], System.Globalization.CultureInfo.InvariantCulture) + (22 + 40 - 2) * s);
-        var (_, y6) = ui.CellCenter(6, 1);
-        ui.DragFrom(hx, hy, hx, y6);
+        ui.Retry(() =>
+        {
+            var (x1, y1) = ui.CellCenter(1, 1); var (x2, y2) = ui.CellCenter(2, 1);
+            ui.DragFrom(x1, y1, x2, y2);
+            ui.WaitProbe("sel", "1,1,2,1");
+            var p = ui.Probe(); var o = p["origin"].Split(','); double s = double.Parse(p["scale"], System.Globalization.CultureInfo.InvariantCulture);
+            int hx = (int)(double.Parse(o[0], System.Globalization.CultureInfo.InvariantCulture) + (50 + 64 - 2) * s), hy = (int)(double.Parse(o[1], System.Globalization.CultureInfo.InvariantCulture) + (22 + 40 - 2) * s);
+            var (_, y6) = ui.CellCenter(6, 1);
+            ui.DragFrom(hx, hy, hx, y6);
+        }, () => Cell(ui.Dump(), "A6") == "60");
         d = ui.DumpUntil(x => Cell(x, "A6") == "60");
         Assert.Equal("60", Cell(d, "A6")); Assert.Equal("40", Cell(d, "A4"));
         ui.Key("^z");                                                       // annulla il riempimento
@@ -91,13 +95,12 @@ public class UiTests
         ui.ClickUntil("Tab_Dati", "Ordina dalla A alla Z"); ui.Click("Ordina dalla A alla Z");
         var d = ui.DumpUntil(x => Cell(x, "A1") == "a");
         Assert.Equal("a", Cell(d, "A1")); Assert.Equal("c", Cell(d, "A3"));
-        ui.Key("^z");
-        Assert.Equal("c", Cell(ui.DumpUntil(x => Cell(x, "A1") == "c"), "A1"));
+        ui.Retry(() => { ui.ClickCell(5, 4); ui.Key("^z"); }, () => Cell(ui.Dump(), "A1") == "c");
+        Assert.Equal("c", Cell(ui.Dump(), "A1"));
         // filtro
-        ui.ClickCell(1, 1); ui.Click("Filtro");
-        ui.WaitProbe("filter", "1");
-        ui.Click("Filtro");
-        ui.WaitProbe("filter", "0");
+        ui.ClickCell(1, 1);
+        ui.Retry(() => ui.Click("Filtro"), () => ui.TryProbe(out var pf) && pf["filter"] == "1");
+        ui.Retry(() => ui.Click("Filtro"), () => ui.TryProbe(out var pf) && pf["filter"] == "0");
         // unione
         ui.ClickUntil("Tab_Home", "Unisci e centra");
         (x1, y1) = ui.CellCenter(5, 1); (x2, y2) = ui.CellCenter(5, 2);

@@ -37,6 +37,7 @@ try {
                             $c = $ws.Cells.Item($r0 + $i - 1, $c0 + $j - 1)
                             $cell.nf = GetP $c 'NumberFormat'; $cell.b = [bool]$c.Font.Bold; $cell.i = [bool]$c.Font.Italic; $cell.fc = $c.Font.Color; $cell.fill = $(if ($c.Interior.ColorIndex -eq -4142) { $null } else { $c.Interior.Color })
                             $cell.ha = $c.HorizontalAlignment; $cell.wrap = $c.WrapText
+                            if ($t -eq 's' -and $v.Length -gt 1 -and $v.Length -lt 255) { $f1 = $c.Characters(1, 1).Font; $f2 = $c.Characters($v.Length, 1).Font; $cell.rt = "$($f1.Bold)/$($f1.Color)/$($f1.Italic);$($f2.Bold)/$($f2.Color)/$($f2.Italic)" }
                             if ($c.MergeCells -and $c.MergeArea.Cells.Item(1, 1).Address() -eq $c.Address()) { $cell.merge = $c.MergeArea.Address($false, $false) }
                         }
                         [void]$cells.Add($cell)
