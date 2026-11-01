@@ -30,7 +30,7 @@ public partial class MainWindow
         var tb = new TextBlock { Text = label + (drop ? " ▾" : ""), TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 78, FontSize = 12, FontFamily = new FontFamily("Segoe UI"), Margin = new Thickness(0, 2, 0, 0) };
         tb.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
         sp.Children.Add(tb); _pendingLabels.Add(tb);
-        return Wrap(label, sp, act, tip, new Thickness(6, 4, 6, 2));
+        return Wrap(label, sp, act, tip, new Thickness(4, 4, 4, 2));
     }
 
     FrameworkElement Small(string label, string? icon, Action? act, bool drop = false, string? tip = null, double minW = 0)
@@ -106,7 +106,7 @@ public partial class MainWindow
         var dock = new DockPanel();
         DockPanel.SetDock(lab, Dock.Bottom);
         dock.Children.Add(lab); dock.Children.Add(content);
-        var b = new Border { BorderThickness = new Thickness(0, 0, 1, 0), Padding = new Thickness(4, 0, 4, 0), Child = dock };
+        var b = new Border { BorderThickness = new Thickness(0, 0, 1, 0), Padding = new Thickness(2, 0, 2, 0), Child = dock };
         b.SetResourceReference(Border.BorderBrushProperty, "BorderBrush2");
         _groupLabels[b] = [.. _pendingLabels]; _pendingLabels.Clear();
         return b;
@@ -166,9 +166,9 @@ public partial class MainWindow
         var fontLabel = default(TextBlock); var sizeLabel = default(TextBlock);
         var paste = Large("Incolla", "paste", DoPaste, true, "Incolla (Ctrl+V)");
         var clip = Group("Appunti", paste, Col(Small("Taglia", "cut", () => DoCopy(true), tip: "Taglia (Ctrl+X)"), Small("Copia", "copy", () => DoCopy(false), tip: "Copia (Ctrl+C)"), Small("Copia formato", "fill", null)));
-        _fontBox = Combo("Calibri", 130, b => DropMenu(b, new[] { "Calibri", "Arial", "Segoe UI", "Times New Roman", "Courier New", "Verdana", "Georgia", "Consolas" }.Select(n => (n, (Action)(() => Fmt(x => x with { Font = x.Font with { Name = n } })))).ToArray()), "Tipo di carattere", out fontLabel);
+        _fontBox = Combo("Calibri", 118, b => DropMenu(b, new[] { "Calibri", "Arial", "Segoe UI", "Times New Roman", "Courier New", "Verdana", "Georgia", "Consolas" }.Select(n => (n, (Action)(() => Fmt(x => x with { Font = x.Font with { Name = n } })))).ToArray()), "Tipo di carattere", out fontLabel);
         _fontLabel = fontLabel;
-        _sizeBox = Combo("11", 52, b => DropMenu(b, new[] { 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72 }.Select(n => (n.ToString(), (Action)(() => Fmt(x => x with { Font = x.Font with { Size = n } })))).ToArray()), "Dimensione carattere", out sizeLabel);
+        _sizeBox = Combo("11", 46, b => DropMenu(b, new[] { 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72 }.Select(n => (n.ToString(), (Action)(() => Fmt(x => x with { Font = x.Font with { Size = n } })))).ToArray()), "Dimensione carattere", out sizeLabel);
         _sizeLabel = sizeLabel;
         _bold = ToggleIcon("G", "Grassetto (Ctrl+B)", FontWeights.Bold, null, false, () => Toggle(x => x.Font.Bold, (x, v) => x with { Font = x.Font with { Bold = v } }));
         _italic = ToggleIcon("C", "Corsivo (Ctrl+I)", FontWeights.Normal, FontStyles.Italic, false, () => Toggle(x => x.Font.Italic, (x, v) => x with { Font = x.Font with { Italic = v } }));
@@ -186,7 +186,7 @@ public partial class MainWindow
                 Small("", "outdent", () => Fmt(x => x with { Indent = Math.Max(0, x.Indent - 1) }), tip: "Riduci rientro"), Small("", "indent", () => Fmt(x => x with { Indent = Math.Min(15, x.Indent + 1) }), tip: "Aumenta rientro"))),
             Col(Small("Unisci e centra", "merge", () => { var (r1, c1, r2, c2) = G.Selection; Wb.Merge(Cur, r1, c1, r2, c2); Fmt(x => x with { HAlign = "center" }); }, tip: "Unisci e allinea al centro"), Small("Dividi celle", "unmerge", () => { var (r1, c1, r2, c2) = G.Selection; Wb.Unmerge(Cur, r1, c1, r2, c2); })));
         Button? nfB = null;
-        nfB = (Button)Combo("Generale", 150, b => DropMenu(b,
+        nfB = (Button)Combo("Generale", 120, b => DropMenu(b,
             ("Generale", () => NumFormat(0)), ("Numero", () => NumFormat(2)), ("Migliaia", () => NumFormat(4)), ("Valuta", () => NumFormat(0, "#,##0.00\\ \"€\"")), ("Percentuale", () => NumFormat(10)),
             ("Data breve", () => NumFormat(14)), ("Data estesa", () => NumFormat(0, "dddd d mmmm yyyy")), ("Ora", () => NumFormat(21)), ("Scientifico", () => NumFormat(11)), ("Testo", () => NumFormat(49))), "Formato numero", out _nfLabel);
         var numbers = Group("Numeri", Col(nfB, RowOf(Small("€", null, () => NumFormat(0, "#,##0.00\\ \"€\""), tip: "Formato valuta"), Small("%", null, () => NumFormat(9), tip: "Stile percentuale"), Small("000", null, () => NumFormat(4), tip: "Stile separatore"), Small(".00+", null, () => Decimals(1), tip: "Aumenta decimali"), Small(".0−", null, () => Decimals(-1), tip: "Diminuisci decimali"))));

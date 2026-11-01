@@ -143,6 +143,7 @@ public partial class MainWindow
     }
 
     /// <summary>Ribbon: prima i gruppi si compattano (solo icone), poi i gruppi in più vanno in un menu a discesa.</summary>
+    bool _ribbonCompact, _ribbonOverflowOn; double _ribbonFull, _ribbonAvail;   // stato dell'ultimo adattamento (letto dalla sonda dei test)
     void LayoutRibbon()
     {
         if (!IsLoaded || !_tabGroups.TryGetValue(_curTab, out var groups) || RibbonHost.Content is not ScrollViewer sv || sv.Content is not StackPanel sp) return;
@@ -150,11 +151,16 @@ public partial class MainWindow
         _ribbonPopPanel.Children.Clear();
         sp.Children.Clear();
         foreach (var g in groups) { sp.Children.Add(g); SetLabels(g, true); }
-        double avail = Math.Max(120, RibbonOuter.ActualWidth - 24);
-        double Width() { sp.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity)); return sp.DesiredSize.Width; }
-        if (Width() <= avail) return;
+        double avail = Math.Max(120, RibbonOuter.ActualWidth - 16);
+        _ribbonCompact = false; _ribbonOverflowOn = false;
+        // le misure vanno ricalcolate davvero: WPF non invalida gli antenati quando cambia la visibilità di un discendente
+        double Width() { sp.InvalidateMeasure(); sp.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity)); return sp.DesiredSize.Width; }
+        _ribbonAvail = avail; _ribbonFull = Width();
+        if (_ribbonFull <= avail) return;
+        _ribbonCompact = true;
         for (int i = groups.Count - 1; i >= 0 && Width() > avail; i--) SetLabels(groups[i], false);
         if (Width() <= avail) return;
+        _ribbonOverflowOn = true;
         _ribbonOverflow ??= MakeRibbonOverflow();
         sp.Children.Add(_ribbonOverflow);
         for (int i = groups.Count - 1; i > 0 && Width() > avail; i--)
@@ -175,7 +181,12 @@ public partial class MainWindow
     void SetLabels(Border g, bool visible)
     {
         if (!_groupLabels.TryGetValue(g, out var l)) return;
-        foreach (var t in l) t.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var t in l)
+        {
+            t.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            DependencyObject? p = t;
+            while (p != null && p is not ScrollViewer) { (p as UIElement)?.InvalidateMeasure(); p = VisualTreeHelper.GetParent(p); }
+        }
     }
 
     Button CaptionBtn(string path, string tip, Action act)
@@ -313,7 +324,7 @@ public partial class MainWindow
         if (!_hooks || Cur == null) return;
         var (r1, c1, r2, c2) = G.Selection;
         Probe.SetValue(AutomationProperties.NameProperty,
-            $"sel={r1},{c1},{r2},{c2};active={G.ActiveRow},{G.ActiveCol};edit={(Host.Editing ? 1 : 0)};dark={(Theme.Dark ? 1 : 0)};zoom={Host.ZoomPct};sheet={Cur.Name};bar={FormulaBar.Text};canvas={(int)G.ActualWidth}x{(int)G.ActualHeight};filter={(Cur.Filter != null ? 1 : 0)};{Origin()}filter2=1;frozen={Cur.FrozenRows},{Cur.FrozenCols};modified={(Wb.Modified ? 1 : 0)};rb={(int)RibbonOuter.ActualWidth};win={(int)ActualWidth}");
+            $"sel={r1},{c1},{r2},{c2};active={G.ActiveRow},{G.ActiveCol};edit={(Host.Editing ? 1 : 0)};dark={(Theme.Dark ? 1 : 0)};zoom={Host.ZoomPct};sheet={Cur.Name};bar={FormulaBar.Text};canvas={(int)G.ActualWidth}x{(int)G.ActualHeight};filter={(Cur.Filter != null ? 1 : 0)};{Origin()}filter2=1;frozen={Cur.FrozenRows},{Cur.FrozenCols};modified={(Wb.Modified ? 1 : 0)};rb={(int)RibbonOuter.ActualWidth};win={(int)ActualWidth};rbcompact={(_ribbonCompact ? 1 : 0)};rbovf={(_ribbonOverflowOn ? 1 : 0)};rbfull={(int)_ribbonFull};rbavail={(int)_ribbonAvail}");
         _undoBtn?.SetCurrentValue(IsEnabledProperty, Wb.CanUndo); _redoBtn?.SetCurrentValue(IsEnabledProperty, Wb.CanRedo);
     }
 
