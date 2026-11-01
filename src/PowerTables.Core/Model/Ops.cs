@@ -303,8 +303,10 @@ public sealed partial class Workbook
     }
 
     // ---------------- layout ----------------
+    /// <summary>Larghezza in caratteri (come Excel): nel file si salva con il margine di 5 pixel.</summary>
     public void SetColWidth(Sheet s, int col, double width)
     {
+        width = Math.Truncate((width * 7 + 5) / 7 * 256) / 256;
         var old = s.Cols.TryGetValue(col, out var oi) ? new ColInfo { Width = oi.Width, Hidden = oi.Hidden, CustomWidth = oi.CustomWidth, Style = oi.Style } : null;
         Do("Larghezza colonna", () =>
         {

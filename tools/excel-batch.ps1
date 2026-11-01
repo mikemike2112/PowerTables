@@ -1,4 +1,4 @@
-# Apre con Excel vero tutti gli .xlsx di una cartella (una sola istanza privata e nascosta) e scrive un JSON per file:
+﻿# Apre con Excel vero tutti gli .xlsx di una cartella (una sola istanza privata e nascosta) e scrive un JSON per file:
 # esito apertura, ripristino/errore, celle (Value2/Formula invarianti), formati, unioni, larghezze, oggetti (grafici, tabelle...).
 # Mai FormulaLocal/Text. Il rilevatore coglie sia gli errori sia il ripristino silenzioso ("[Ripristinato]/[Repaired]" nel nome).
 param([Parameter(Mandatory)][string]$InDir, [Parameter(Mandatory)][string]$OutDir, [switch]$Recalc)
@@ -50,6 +50,7 @@ try {
                         cf = [int]$ws.Cells.FormatConditions.Count
                     }
                 }
+                try { $win = $wb.Windows.Item(1); $res.freeze = [ordered]@{ sheet = $wb.ActiveSheet.Name; on = [bool]$win.FreezePanes; row = [int]$win.SplitRow; col = [int]$win.SplitColumn } } catch { $res.freeze = $null }
                 $res.ok = (-not $res.repaired) -and (-not $res.error)
             }
         } catch { $res.error = $_.Exception.Message }

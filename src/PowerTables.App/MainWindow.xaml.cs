@@ -494,7 +494,7 @@ public partial class MainWindow : Window
             ("Data lunga", () => NumFormat(0, "dddd d mmmm yyyy")), ("Ora", () => NumFormat(21)), ("Scientifico", () => NumFormat(11)), ("Testo", () => NumFormat(49))), "Formato numerico");
         home.Children.Add(Group("Numeri", nf, B("%", () => NumFormat(9), "Percentuale"), B(".00+", () => Decimals(1), "Aumenta decimali"), B(".0-", () => Decimals(-1), "Riduci decimali")));
         home.Children.Add(Group("Celle",
-            B("Larghezza colonna", () => { var s = Ask("Larghezza colonna", "Caratteri:", Cur.ColWidth(G.ActiveCol).ToString("0.##", Ci)); if (s != null && double.TryParse(s, NumberStyles.Float, Ci, out var w) && w is > 0 and <= 255) { var (_, c1, _, c2) = G.Selection; for (int c = c1; c <= c2; c++) Wb.SetColWidth(Cur, c, w); } }),
+            B("Larghezza colonna", () => { var s = Ask("Larghezza colonna", "Caratteri:", (Cur.ColWidth(G.ActiveCol) - 5.0 / 7).ToString("0.##", Ci)); if (s != null && double.TryParse(s, NumberStyles.Float, Ci, out var w) && w is > 0 and <= 255) { var (_, c1, _, c2) = G.Selection; for (int c = c1; c <= c2; c++) Wb.SetColWidth(Cur, c, w); } }),
             B("Altezza riga", () => { var s = Ask("Altezza riga", "Punti:", Cur.RowHeight(G.ActiveRow).ToString("0.##", Ci)); if (s != null && double.TryParse(s, NumberStyles.Float, Ci, out var h) && h is > 0 and <= 409) { var (r1, _, r2, _) = G.Selection; for (int r = r1; r <= r2; r++) Wb.SetRowHeight(Cur, r, h); } }),
             B("Adatta colonna", () => G.AutoFitColumn(G.ActiveCol))));
         home.Children.Add(Group("Modifica",

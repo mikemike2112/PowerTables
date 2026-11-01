@@ -141,7 +141,7 @@ public static class Evaluator
     {
         Node n;
         try { n = Parser.Parse(formula); }
-        catch (FormatException) { return CellError.Name; }
+        catch (FormatException) { throw new UnsupportedEx("sintassi non supportata (es. riferimenti strutturati di tabella)"); }
         try { return Finish(Eval(n, cx), cx); }
         catch (ExcelEx e) { return e.Err; }
         catch (Exception e) when (e is InvalidCastException or ArgumentException or IndexOutOfRangeException or OverflowException or InvalidOperationException or FormatException or NullReferenceException) { return CellError.Value; }
