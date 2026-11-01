@@ -35,6 +35,7 @@ public sealed class GridCanvas : FrameworkElement
         Focusable = true; ClipToBounds = true; SnapsToDevicePixels = true;
         FocusVisualStyle = null;
         Cursor = Cursors.Cross;
+        Theme.Changed += () => { _fmtCache.Clear(); InvalidateVisual(); };
     }
 
     public void Attach(Workbook wb, Sheet s)
@@ -307,7 +308,6 @@ public sealed class GridCanvas : FrameworkElement
         if (xf.Font.Color != null)
         {
             col = Argb(xf.Font.Color);
-            if (xf.FillColor == null && Theme.Dark && Lum(col) < 0.2) col = Theme.CellText; // testo nero su sfondo scuro → colore automatico
         }
         else col = xf.FillColor != null ? (Lum(bg) > 0.55 ? Colors.Black : Colors.White) : Theme.CellText;
         if (cell.Kind == CellKind.Err) col = Color.FromRgb(0xe5, 0x6b, 0x6b);
@@ -346,8 +346,7 @@ public sealed class GridCanvas : FrameworkElement
         {
             if (s.Style == null) return;
             double w = s.Style is "medium" or "mediumDashed" or "mediumDashDot" ? 2 : s.Style == "thick" ? 3 : 1;
-            var color = s.Color != null ? Argb(s.Color) : (Theme.Dark ? Color.FromRgb(0xd0, 0xd0, 0xd0) : Colors.Black);
-            if (s.Color != null && Theme.Dark && Lum(color) < 0.2) color = Color.FromRgb(0xd0, 0xd0, 0xd0);
+            var color = s.Color != null ? Argb(s.Color) : Colors.Black;
             var pen = new Pen(Theme.Brush(color), w);
             if (s.Style is "dashed" or "mediumDashed") pen.DashStyle = DashStyles.Dash; else if (s.Style is "dotted" or "hair") pen.DashStyle = DashStyles.Dot;
             dc.DrawLine(pen, a, z);

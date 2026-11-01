@@ -56,7 +56,7 @@ public sealed class Sheet
 
     // Persistenza (round-trip)
     internal HashSet<int> DirtyRows = [];
-    internal bool LayoutDirty;      // cols/merge/pane/filtro modificati
+    public bool LayoutDirty;      // cols/merge/pane/filtro modificati
     internal string? PartId;
     internal string? OrigName;        // id relazione nel workbook
     internal bool Loaded = true;

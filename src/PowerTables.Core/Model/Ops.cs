@@ -17,12 +17,14 @@ public sealed class ClipData
 public sealed partial class Workbook
 {
     // ---------------- testo visualizzato ----------------
+    public bool ShowFormulas;
     public string CodeFor(uint style, CultureInfo ci) => Styles.Get(style) is { NumFmtId: 14, NumFmtCode: null } ? NumFmt.ShortDate(ci) : Styles.FormatCode(style);
 
     public string DisplayText(Sheet s, int r, int c, CultureInfo? ci = null)
     {
         ci ??= CultureInfo.CurrentCulture;
         var cell = s.Get(r, c);
+        if (ShowFormulas && cell.F != null) return "=" + FormulaText.ToDisplay(cell.F.Text);
         switch (cell.Kind)
         {
             case CellKind.Empty: return "";

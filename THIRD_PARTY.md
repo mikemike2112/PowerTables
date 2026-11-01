@@ -12,3 +12,7 @@ Solo licenze MIT / Apache-2.0 / BSD. Licenze verificate sui metadati dei pacchet
 
 Il motore formule, il parser, il formattatore dei numeri, il grafo delle dipendenze e il rendering della griglia sono scritti nel progetto
 (nessuna libreria di calcolo, nessun controllo griglia di terze parti). Nessun nome, logo o icona Microsoft nell'applicazione.
+
+## Icona
+
+L'icona dell'applicazione (`src/PowerTables.App/Assets/icon-source.png`, derivata `powertables.png` / `powertables.ico`) è fornita dall'autore del progetto; non proviene da terzi né da risorse Microsoft. Il colore d'accento `#46B862` è campionato dallo sfondo dell'icona.

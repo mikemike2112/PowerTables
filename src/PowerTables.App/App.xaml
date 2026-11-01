@@ -62,6 +62,48 @@
             </Setter>
         </Style>
 
+
+        <Style x:Key="PowersTabBtn" TargetType="ToggleButton" BasedOn="{StaticResource TabBtn}">
+            <Setter Property="Foreground" Value="{DynamicResource PowersBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="b" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="14,6" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True"><Setter TargetName="b" Property="BorderBrush" Value="{DynamicResource PowersBrush}"/></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="Background" Value="{DynamicResource HoverBrush}"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SwitchToggle" TargetType="ToggleButton">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="track" CornerRadius="11" BorderThickness="1" BorderBrush="{DynamicResource TextDimBrush}" Background="Transparent">
+                            <Ellipse x:Name="knob" Width="14" Height="14" Fill="{DynamicResource TextDimBrush}" HorizontalAlignment="Left" Margin="4,0,0,0"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="track" Property="Background" Value="{DynamicResource PowersBrush}"/>
+                                <Setter TargetName="track" Property="BorderBrush" Value="{DynamicResource PowersBrush}"/>
+                                <Setter TargetName="knob" Property="HorizontalAlignment" Value="Right"/>
+                                <Setter TargetName="knob" Property="Margin" Value="0,0,4,0"/>
+                                <Setter TargetName="knob" Property="Fill" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style TargetType="ToggleButton">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
             <Setter Property="Focusable" Value="False"/>

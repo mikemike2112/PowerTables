@@ -13,6 +13,7 @@ using System.Windows.Threading;
 using Microsoft.Win32;
 using PowerTables.Core;
 using PowerTables.Core.Formulas;
+using Formulas = PowerTables.Core.Formulas;
 using PowerTables.Core.IO;
 
 namespace PowerTables.App;
@@ -24,7 +25,6 @@ public partial class MainWindow : Window
     GridCanvas G => Host.Canvas;
     Sheet Cur => G.Sheet;
     ClipData? _clip; string? _clipText;
-    readonly Dictionary<string, Panel> _tabs = [];
     CultureInfo Ci => CultureInfo.CurrentCulture;
     ToggleButton? _bold, _italic, _underline;
 
@@ -32,7 +32,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         GridArea.Children.Add(Host);
-        BuildRibbon();
+        BuildChrome();
+        BuildTabs();
         SetWorkbook(XlsxWriter.CreateNew());
         G.SelectionChanged += OnSelection;
         G.CopyRequested += () => DoCopy(false); G.CutRequested += () => DoCopy(true); G.PasteRequested += DoPaste;
@@ -70,7 +71,7 @@ public partial class MainWindow : Window
                 else if (e.Key == Key.R && !Host.Editing) { FillDirection(false); e.Handled = true; }
             }
         };
-        Loaded += (_, _) => G.Focus();
+        Loaded += (_, _) => { Root.Margin = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0); G.Focus(); };
     }
 
     // ---------------- documento ----------------
@@ -83,12 +84,13 @@ public partial class MainWindow : Window
         RebuildSheetTabs(); RefreshBar(); UpdateTitle();
     }
 
-    void OnChanged() { UpdateTitle(); RefreshBar(); UpdateStatus(); }
+    void OnChanged() { UpdateTitle(); RefreshBar(); UpdateStatus(); UpdateProbe(); DumpState(); }
 
     void UpdateTitle()
     {
         string n = Wb.FilePath != null ? Path.GetFileName(Wb.FilePath) : "Senza titolo";
         Title = $"{n}{(Wb.Modified ? " *" : "")} - PowerTables";
+        DocTitle.Text = $"{Path.GetFileNameWithoutExtension(n)}{(Wb.Modified ? " *" : "")}  -  PowerTables";
     }
 
     void NewDoc()
@@ -300,6 +302,10 @@ public partial class MainWindow : Window
     {
         if (_bold == null || Cur == null) return;
         var x = ActiveXf; _bold.IsChecked = x.Font.Bold; _italic!.IsChecked = x.Font.Italic; _underline!.IsChecked = x.Font.Underline;
+        if (_fontLabel != null) _fontLabel.Text = x.Font.Name;
+        if (_sizeLabel != null) _sizeLabel.Text = x.Font.Size.ToString("0.#", Ci);
+        if (_nfLabel != null) { var code = Wb.Styles.FormatCode(Cur.Get(G.ActiveRow, G.ActiveCol).Style); _nfLabel.Text = code == "General" ? "Generale" : x.NumFmtId is 9 or 10 ? "Percentuale" : Formulas.NumFmt.IsDate(code) ? "Data" : x.NumFmtId == 49 ? "Testo" : "Personalizzato"; }
+        UpdateProbe();
     }
 
     static string Hex(Color c) => $"FF{c.R:X2}{c.G:X2}{c.B:X2}";
@@ -438,100 +444,6 @@ public partial class MainWindow : Window
         };
         clear.Click += (_, _) => { w.Close(); Wb.SetColumnFilter(Cur, col, null, Ci); };
         w.ShowDialog();
-    }
-
-    // ---------------- ribbon ----------------
-    UIElement Group(string label, params UIElement[] items)
-    {
-        var wrap = new WrapPanel { MaxWidth = 330, Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        foreach (var i in items) wrap.Children.Add(i);
-        var sp = new StackPanel { Margin = new Thickness(6, 2, 6, 0), Children = { wrap, new TextBlock { Text = label, Foreground = (Brush)FindResource("TextDimBrush"), FontSize = 10, HorizontalAlignment = HorizontalAlignment.Center, FontFamily = new FontFamily("Segoe UI") } } };
-        return new Border { BorderBrush = (Brush)FindResource("BorderBrush2"), BorderThickness = new Thickness(0, 0, 1, 0), Child = sp };
-    }
-
-    Button B(string text, Action act, string? tip = null, double? width = null)
-    {
-        var b = new Button { Content = text, ToolTip = tip ?? text };
-        if (width != null) b.MinWidth = width.Value;
-        b.Click += (_, _) => { try { act(); } catch (Exception ex) when (ex is FormatException or ArgumentException or InvalidOperationException) { MessageBox.Show(this, ex.Message, "PowerTables"); } G.Focus(); };
-        return b;
-    }
-
-    ToggleButton T(string text, string tip, Func<XfInfo, bool> get, Func<XfInfo, bool, XfInfo> set, FontWeight? w = null, FontStyle? st = null, bool underline = false)
-    {
-        var t = new ToggleButton { Content = new TextBlock { Text = text, FontWeight = w ?? FontWeights.Normal, FontStyle = st ?? FontStyles.Normal, TextDecorations = underline ? TextDecorations.Underline : null }, ToolTip = tip, MinWidth = 28 };
-        t.Click += (_, _) => { Toggle(get, set); G.Focus(); };
-        return t;
-    }
-
-    void BuildRibbon()
-    {
-        var file = new StackPanel { Orientation = Orientation.Horizontal };
-        file.Children.Add(Group("Documento", B("Nuovo", NewDoc), B("Apri", Open), B("Salva", () => Save(false)), B("Salva con nome", () => Save(true))));
-        file.Children.Add(Group("CSV", B("Importa CSV", ImportCsv), B("Esporta CSV", ExportCsv)));
-
-        var home = new StackPanel { Orientation = Orientation.Horizontal };
-        home.Children.Add(Group("Appunti", B("Incolla", DoPaste, "Incolla (Ctrl+V)"), B("Taglia", () => DoCopy(true), "Taglia (Ctrl+X)"), B("Copia", () => DoCopy(false), "Copia (Ctrl+C)"), B("Annulla", () => Wb.Undo(), "Annulla (Ctrl+Z)"), B("Ripeti", () => Wb.Redo(), "Ripeti (Ctrl+Y)")));
-        _bold = T("G", "Grassetto (Ctrl+B)", x => x.Font.Bold, (x, v) => x with { Font = x.Font with { Bold = v } }, FontWeights.Bold);
-        _italic = T("C", "Corsivo (Ctrl+I)", x => x.Font.Italic, (x, v) => x with { Font = x.Font with { Italic = v } }, null, FontStyles.Italic);
-        _underline = T("S", "Sottolineato (Ctrl+U)", x => x.Font.Underline, (x, v) => x with { Font = x.Font with { Underline = v } }, null, null, true);
-        Button? fill = null, tcol = null, size = null, font = null, borders = null;
-        font = B("Carattere", () => DropMenu(font!, new[] { "Calibri", "Arial", "Segoe UI", "Times New Roman", "Courier New", "Verdana", "Georgia" }.Select(n => (n, (Action)(() => Fmt(x => x with { Font = x.Font with { Name = n } })))).ToArray()), "Tipo di carattere");
-        size = B("Dim.", () => DropMenu(size!, new[] { 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36 }.Select(n => (n.ToString(), (Action)(() => Fmt(x => x with { Font = x.Font with { Size = n } })))).ToArray()), "Dimensione carattere");
-        fill = B("Sfondo", () => Palette(fill!, c => Fmt(x => x with { FillColor = c })), "Colore di riempimento");
-        tcol = B("Testo", () => Palette(tcol!, c => Fmt(x => x with { Font = x.Font with { Color = c } })), "Colore del testo");
-        borders = B("Bordi", () => DropMenu(borders!,
-            ("Tutti i bordi", () => SetBorders("all")), ("Bordo esterno", () => SetBorders("outer")), ("Bordo inferiore", () => SetBorders("bottom")), ("Nessun bordo", () => SetBorders("none"))), "Bordi");
-        home.Children.Add(Group("Carattere", font, size, _bold, _italic, _underline, fill, tcol, borders));
-        home.Children.Add(Group("Allineamento",
-            B("Sx", () => Fmt(x => x with { HAlign = "left" }), "Allinea a sinistra"), B("Cx", () => Fmt(x => x with { HAlign = "center" }), "Centra"), B("Dx", () => Fmt(x => x with { HAlign = "right" }), "Allinea a destra"),
-            B("A capo", () => Fmt(x => x with { Wrap = !x.Wrap }), "Testo a capo"),
-            B("Unisci", () => { var (r1, c1, r2, c2) = G.Selection; Wb.Merge(Cur, r1, c1, r2, c2); }, "Unisci celle"), B("Dividi", () => { var (r1, c1, r2, c2) = G.Selection; Wb.Unmerge(Cur, r1, c1, r2, c2); }, "Dividi celle")));
-        Button? nf = null;
-        nf = B("Formato numero", () => DropMenu(nf!,
-            ("Generale", () => NumFormat(0)), ("Numero 0,00", () => NumFormat(2)), ("Migliaia 1.234,00", () => NumFormat(4)),
-            ("Valuta €", () => NumFormat(0, "#,##0.00\\ \"€\"")), ("Percentuale", () => NumFormat(10)), ("Data breve", () => NumFormat(14)),
-            ("Data lunga", () => NumFormat(0, "dddd d mmmm yyyy")), ("Ora", () => NumFormat(21)), ("Scientifico", () => NumFormat(11)), ("Testo", () => NumFormat(49))), "Formato numerico");
-        home.Children.Add(Group("Numeri", nf, B("%", () => NumFormat(9), "Percentuale"), B(".00+", () => Decimals(1), "Aumenta decimali"), B(".0-", () => Decimals(-1), "Riduci decimali")));
-        home.Children.Add(Group("Celle",
-            B("Larghezza colonna", () => { var s = Ask("Larghezza colonna", "Caratteri:", (Cur.ColWidth(G.ActiveCol) - 5.0 / 7).ToString("0.##", Ci)); if (s != null && double.TryParse(s, NumberStyles.Float, Ci, out var w) && w is > 0 and <= 255) { var (_, c1, _, c2) = G.Selection; for (int c = c1; c <= c2; c++) Wb.SetColWidth(Cur, c, w); } }),
-            B("Altezza riga", () => { var s = Ask("Altezza riga", "Punti:", Cur.RowHeight(G.ActiveRow).ToString("0.##", Ci)); if (s != null && double.TryParse(s, NumberStyles.Float, Ci, out var h) && h is > 0 and <= 409) { var (r1, _, r2, _) = G.Selection; for (int r = r1; r <= r2; r++) Wb.SetRowHeight(Cur, r, h); } }),
-            B("Adatta colonna", () => G.AutoFitColumn(G.ActiveCol))));
-        home.Children.Add(Group("Modifica",
-            B("Σ Somma", AutoSum, "Somma automatica"), B("Cancella", () => G.ClearSelection(), "Cancella contenuto (Canc)"),
-            B("Riempi giù", () => FillDirection(true), "Ctrl+D"), B("Riempi destra", () => FillDirection(false), "Ctrl+R")));
-
-        var data = new StackPanel { Orientation = Orientation.Horizontal };
-        data.Children.Add(Group("Ordina e filtra", B("A → Z", () => DoSort(true)), B("Z → A", () => DoSort(false)), B("Filtro", ToggleFilter, "Attiva/disattiva filtro automatico")));
-        data.Children.Add(Group("Riquadri", B("Blocca riga 1", () => Wb.SetFreeze(Cur, 1, Cur.FrozenCols)), B("Blocca col. A", () => Wb.SetFreeze(Cur, Cur.FrozenRows, 1)),
-            B("Blocca fino a selezione", () => Wb.SetFreeze(Cur, G.ActiveRow - 1, G.ActiveCol - 1)), B("Sblocca", () => Wb.SetFreeze(Cur, 0, 0))));
-        data.Children.Add(Group("Calcolo", B("Ricalcola tutto", () => { var sw = Stopwatch.StartNew(); Wb.RecalcAll(); G.InvalidateVisual(); StatusRight.Text = $"Ricalcolo: {sw.ElapsedMilliseconds} ms ({Wb.LastRecalcCount:N0} formule)"; UpdateStatus(); })));
-
-        var view = new StackPanel { Orientation = Orientation.Horizontal };
-        view.Children.Add(Group("Tema", B("Chiaro / scuro", ToggleTheme)));
-        view.Children.Add(Group("Mostra", B("Griglia", () => { Cur.ShowGridLines = !Cur.ShowGridLines; G.InvalidateVisual(); })));
-
-        _tabs["File"] = file; _tabs["Home"] = home; _tabs["Dati"] = data; _tabs["Visualizza"] = view;
-        foreach (var name in _tabs.Keys)
-        {
-            var n = name;
-            var tb = new ToggleButton { Content = n, Style = (Style)FindResource("TabBtn"), IsChecked = n == "Home" };
-            tb.Click += (_, _) => ShowTab(n);
-            TabStrip.Children.Add(tb);
-        }
-        ShowTab("Home");
-    }
-
-    void ShowTab(string name)
-    {
-        RibbonHost.Child = _tabs[name];
-        foreach (ToggleButton t in TabStrip.Children) t.IsChecked = (string)t.Content == name;
-    }
-
-    void ToggleTheme()
-    {
-        Theme.Dark = !Theme.Dark; Theme.Apply(Application.Current.Resources);
-        G.RelayoutAll();
     }
 
     void SetBorders(string kind)
