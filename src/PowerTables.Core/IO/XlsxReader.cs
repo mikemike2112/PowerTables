@@ -78,9 +78,9 @@ public static class XlsxReader
         }
 
         // stringhe condivise
-        string[] sst = [];
+        string[] sst = []; Dictionary<int, string> richSst = [];
         var ssp = wbp.SharedStringTablePart;
-        if (ssp != null) { using var s = ssp.GetStream(FileMode.Open, FileAccess.Read); sst = ReadSharedStrings(s); }
+        if (ssp != null) { using var s = ssp.GetStream(FileMode.Open, FileAccess.Read); sst = ReadSharedStrings(s, out richSst); }
 
         int idx = 0;
         foreach (var se in wdoc.Root!.Element(m + "sheets")?.Elements(m + "sheet") ?? [])
@@ -92,7 +92,7 @@ public static class XlsxReader
             if (rid == null || wbp.GetPartById(rid) is not WorksheetPart wsp) { sh.Loaded = false; continue; } // chartsheet ecc.: intatto
             byte[] sb;
             using (var s = wsp.GetStream(FileMode.Open, FileAccess.Read)) { var ms = new MemoryStream(); s.CopyTo(ms); sb = ms.ToArray(); }
-            LoadSheet(sh, sb, sst);
+            LoadSheet(sh, sb, sst, richSst);
         }
         foreach (var dn in wdoc.Root.Element(m + "definedNames")?.Elements(m + "definedName") ?? [])
         {
@@ -104,38 +104,39 @@ public static class XlsxReader
         wb.Styles.MarkClean();
     }
 
-    static string[] ReadSharedStrings(Stream s)
+    /// <summary>Testo semplice di ogni stringa condivisa; per quelle con formattazione (runs) anche il contenuto XML originale di &lt;si&gt;.</summary>
+    static string[] ReadSharedStrings(Stream s, out Dictionary<int, string> rich)
     {
-        var list = new List<string>();
+        var list = new List<string>(); rich = [];
         using var r = XmlReader.Create(s, Settings());
-        var sb = new StringBuilder();
         while (r.Read())
         {
             if (r.NodeType != XmlNodeType.Element || r.LocalName != "si") continue;
-            sb.Clear();
-            if (r.IsEmptyElement) { list.Add(""); continue; }
-            int depth = r.Depth;
-            bool inT = false, inPh = false; int phDepth = -1;
-            while (r.Read() && !(r.NodeType == XmlNodeType.EndElement && r.Depth == depth))
+            var (plain, xml) = ParseSi(r.ReadOuterXml());
+            if (xml != null) rich[list.Count] = xml;
+            list.Add(plain);
+            // ReadOuterXml avanza oltre </si>: se il nodo corrente è un altro <si> va rielaborato
+            while (r.NodeType == XmlNodeType.Element && r.LocalName == "si")
             {
-                if (r.NodeType == XmlNodeType.Element)
-                {
-                    if (r.LocalName == "rPh") { inPh = true; phDepth = r.Depth; if (r.IsEmptyElement) inPh = false; }
-                    else if (r.LocalName == "t" && !inPh) { inT = !r.IsEmptyElement; }
-                }
-                else if (r.NodeType == XmlNodeType.EndElement)
-                {
-                    if (r.LocalName == "t") inT = false;
-                    if (r.LocalName == "rPh" && r.Depth == phDepth) inPh = false;
-                }
-                else if ((r.NodeType is XmlNodeType.Text or XmlNodeType.SignificantWhitespace or XmlNodeType.Whitespace or XmlNodeType.CDATA) && inT) sb.Append(r.Value);
+                (plain, xml) = ParseSi(r.ReadOuterXml());
+                if (xml != null) rich[list.Count] = xml;
+                list.Add(plain);
             }
-            list.Add(sb.ToString());
         }
         return [.. list];
     }
 
-    internal static void LoadSheet(Sheet sh, byte[] bytes, string[] sst)
+    /// <summary>Estrae il testo (senza fonetica) da un &lt;si&gt;/&lt;is&gt;; restituisce il contenuto XML originale solo se contiene runs formattati.</summary>
+    static (string Plain, string? RichXml) ParseSi(string xml)
+    {
+        var el = XElement.Parse(xml, LoadOptions.PreserveWhitespace);
+        var sb = new StringBuilder();
+        foreach (var t in el.Descendants().Where(d => d.Name.LocalName == "t" && !d.Ancestors().Any(a => a.Name.LocalName == "rPh"))) sb.Append(t.Value);
+        bool hasRuns = el.Elements().Any(e => e.Name.LocalName == "r");
+        return (sb.ToString(), hasRuns ? string.Concat(el.Nodes().Select(n => n.ToString(SaveOptions.DisableFormatting))) : null);
+    }
+
+    internal static void LoadSheet(Sheet sh, byte[] bytes, string[] sst, Dictionary<int, string> richSst)
     {
         using var ms = new MemoryStream(bytes);
         using var r = XmlReader.Create(ms, Settings());
@@ -160,7 +161,7 @@ public static class XlsxReader
                     }
                     break;
                 case "col": ReadCol(sh, r); break;
-                case "sheetData": if (!r.IsEmptyElement) ReadSheetData(sh, r, sst, shared); break;
+                case "sheetData": if (!r.IsEmptyElement) ReadSheetData(sh, r, sst, richSst, shared); break;
                 case "mergeCell":
                     if (r.GetAttribute("ref") is { } rf && Addr.TryParseRange(rf, out var r1, out var c1, out var r2, out var c2) && (r1 != r2 || c1 != c2))
                         sh.Merges.Add(new MergeRange(r1, c1, r2, c2));
@@ -188,7 +189,7 @@ public static class XlsxReader
             sh.Cols[c] = new ColInfo { Width = w, Hidden = hidden, CustomWidth = custom, Style = style };
     }
 
-    static void ReadSheetData(Sheet sh, XmlReader r, string[] sst, Dictionary<int, (string, int, int)> shared)
+    static void ReadSheetData(Sheet sh, XmlReader r, string[] sst, Dictionary<int, string> richSst, Dictionary<int, (string, int, int)> shared)
     {
         int depth = r.Depth;
         int row = 0, nextCol = 1;
@@ -202,7 +203,7 @@ public static class XlsxReader
                 ReadRowAttrs(sh, r, row);
                 if (r.IsEmptyElement) continue;
             }
-            else if (r.LocalName == "c") ReadCell(sh, r, row, ref nextCol, sst, shared);
+            else if (r.LocalName == "c") ReadCell(sh, r, row, ref nextCol, sst, richSst, shared);
         }
     }
 
@@ -233,7 +234,7 @@ public static class XlsxReader
         if (ri != null) sh.Rows[row] = ri;
     }
 
-    static void ReadCell(Sheet sh, XmlReader r, int row, ref int nextCol, string[] sst, Dictionary<int, (string Text, int Row, int Col)> shared)
+    static void ReadCell(Sheet sh, XmlReader r, int row, ref int nextCol, string[] sst, Dictionary<int, string> richSst, Dictionary<int, (string Text, int Row, int Col)> shared)
     {
         int col = nextCol;
         string? t = null; uint style = 0; StringBuilder? extra = null;
@@ -255,7 +256,7 @@ public static class XlsxReader
         }
         if (refAttr != null && Addr.TryParse(refAttr, out var rr, out var cc)) { col = cc; row = rr; }
         nextCol = col + 1;
-        string? v = null, fText = null, fRaw = null, fType = null; int fSi = -1; string? inline = null; bool hasF = false;
+        string? v = null, fText = null, fRaw = null, fType = null; int fSi = -1; string? inline = null, inlineRich = null; bool hasF = false;
         if (!r.IsEmptyElement)
         {
             int depth = r.Depth;
@@ -284,18 +285,8 @@ public static class XlsxReader
                         break;
                     case "is":
                         {
-                            var sb = new StringBuilder();
-                            if (!r.IsEmptyElement)
-                            {
-                                int d2 = r.Depth; bool inT = false, inPh = false;
-                                while (r.Read() && !(r.NodeType == XmlNodeType.EndElement && r.Depth == d2))
-                                {
-                                    if (r.NodeType == XmlNodeType.Element) { if (r.LocalName == "rPh") inPh = true; else if (r.LocalName == "t") inT = !r.IsEmptyElement && !inPh; }
-                                    else if (r.NodeType == XmlNodeType.EndElement) { if (r.LocalName == "t") inT = false; if (r.LocalName == "rPh") inPh = false; }
-                                    else if (inT && r.NodeType is XmlNodeType.Text or XmlNodeType.SignificantWhitespace or XmlNodeType.Whitespace or XmlNodeType.CDATA) sb.Append(r.Value);
-                                }
-                            }
-                            inline = sb.ToString(); break;
+                            var (pl, rx) = ParseSi(r.ReadOuterXml());
+                            inline = pl; inlineRich = rx; advance = false; break;
                         }
                 }
             }
@@ -305,10 +296,10 @@ public static class XlsxReader
         switch (t)
         {
             case "s":
-                if (int.TryParse(v, out var si2) && si2 >= 0 && si2 < sst.Length) { cell.Kind = CellKind.Str; cell.Obj = sst[si2]; }
+                if (int.TryParse(v, out var si2) && si2 >= 0 && si2 < sst.Length) { cell.Kind = CellKind.Str; cell.Obj = sst[si2]; if (richSst.TryGetValue(si2, out var rx)) sh.Rich[Addr.Key(row, col)] = (sst[si2], rx); }
                 break;
             case "str": cell.Kind = CellKind.Str; cell.Obj = v ?? ""; break;
-            case "inlineStr": cell.Kind = CellKind.Str; cell.Obj = inline ?? ""; break;
+            case "inlineStr": cell.Kind = CellKind.Str; cell.Obj = inline ?? ""; if (inlineRich != null) sh.Rich[Addr.Key(row, col)] = (inline ?? "", inlineRich); break;
             case "b": if (v != null) { cell.Kind = CellKind.Bool; cell.Num = v is "1" or "true" ? 1 : 0; } break;
             case "e": if (v != null && Errors.TryParse(v, out var ce)) { cell.Kind = CellKind.Err; cell.Num = (int)ce; } break;
             case "d": cell.Kind = CellKind.Str; cell.Obj = v ?? ""; break; // ponytail: date ISO trattate come testo

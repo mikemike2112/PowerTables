@@ -46,6 +46,8 @@ public sealed class Sheet
     public readonly Dictionary<int, RowInfo> Rows = [];
     public readonly Dictionary<int, ColInfo> Cols = [];
     public readonly List<MergeRange> Merges = [];
+    /// <summary>Testo ricco originale (contenuto XML di si/is) per cella: riscritto al salvataggio finché il testo della cella non cambia.</summary>
+    internal readonly Dictionary<long, (string Plain, string Xml)> Rich = [];
     public int FrozenRows, FrozenCols;
     public double DefaultRowHeight = 15, DefaultColWidth = 9.140625;
     public AutoFilterState? Filter;

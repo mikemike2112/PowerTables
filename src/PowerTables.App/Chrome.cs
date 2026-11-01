@@ -68,7 +68,7 @@ public partial class MainWindow
         StateChanged += (_, _) => { Root.Margin = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0); };
         Host.Canvas.SelectionChanged += () => UpdateProbe(); Host.Canvas.ViewChanged += UpdateProbe; Loaded += (_, _) => UpdateProbe();
         Theme.Changed += UpdateProbe;
-        if (_hooks) { Probe.Visibility = Visibility.Visible; Probe.Opacity = 0; Probe.Width = 1; Probe.Height = 1; Probe.HorizontalAlignment = HorizontalAlignment.Left; }
+        if (_hooks) { Topmost = true; Probe.Visibility = Visibility.Visible; Probe.Opacity = 0; Probe.Width = 1; Probe.Height = 1; Probe.HorizontalAlignment = HorizontalAlignment.Left; }
     }
 
     Button CaptionBtn(string path, string tip, Action act)

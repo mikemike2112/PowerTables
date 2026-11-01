@@ -246,7 +246,7 @@ public class RoundTripTests(RtFixture fx)
                 var key = (c.GetProperty("r").GetInt32(), c.GetProperty("c").GetInt32());
                 Assert.True(bc.TryGetValue(key, out var d), $"{f}/{a.GetProperty("name")}: cella {key} persa");
                 if (Volatile(c)) continue;
-                foreach (var p in new[] { "t", "v", "e", "f", "nf", "b", "i", "fc", "fill", "ha", "wrap", "merge" })
+                foreach (var p in new[] { "t", "v", "e", "f", "nf", "b", "i", "fc", "fill", "ha", "wrap", "merge", "rt" })
                 {
                     string x = c.TryGetProperty(p, out var xe) ? xe.ToString() : "", y = d.TryGetProperty(p, out var ye) ? ye.ToString() : "";
                     Assert.True(x == y, $"{f}/{a.GetProperty("name")} cella {key} campo {p}: '{x}' -> '{y}'");

@@ -268,7 +268,7 @@ public partial class MainWindow : Window
             bool own = false;
             try { text = Clipboard.ContainsText() ? Clipboard.GetText() : null; own = Clipboard.ContainsData("PowerTables.Clip") && Clipboard.GetData("PowerTables.Clip") as string == _clipId; } catch (System.Runtime.InteropServices.ExternalException) { }
             (int, int) end;
-            if (_clip != null && (own || text == null)) { end = Wb.Paste(_clip, Cur, G.ActiveRow, G.ActiveCol); if (_clip.Cut) { _clip = null; G.Marching = null; } }
+            if (_clip != null && (own || text == null || text == _clipText)) { end = Wb.Paste(_clip, Cur, G.ActiveRow, G.ActiveCol); if (_clip.Cut) { _clip = null; G.Marching = null; } }
             else if (text != null) end = Wb.PasteText(Cur, G.ActiveRow, G.ActiveCol, text, Ci);
             else return;
             G.SelectRange(G.ActiveRow, G.ActiveCol, end.Item1, end.Item2);

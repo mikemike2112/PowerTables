@@ -109,4 +109,30 @@ public class FeatureRoundTripTests
         Assert.Equal(1234.5, Cell(j, 0, 2, 2).GetProperty("v").GetDouble());
         Assert.Equal(45366, Cell(j, 0, 2, 3).GetProperty("v").GetDouble());
     }
+
+    /// <summary>Modificare una cella nella stessa riga di una stringa a testo ricco non deve far perdere i runs formattati (verificato in Excel).</summary>
+    [Fact]
+    public void RichText_SurvivesEditOfAnotherCellInTheSameRow()
+    {
+        var dir = Path.Combine(TestUtil.Root, "tests", "work", "feat", "rich");
+        if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        Directory.CreateDirectory(dir);
+        string src = TestUtil.Corpus("office-made", "rich-text.xlsx");
+        File.Copy(src, Path.Combine(dir, "orig.xlsx"));
+        var wb = XlsxReader.Open(src);
+        wb.Do("e", () => { wb.SetValue(wb.Sheets[0], 1, 2, 99.0); wb.SetValue(wb.Sheets[0], 2, 2, 100.0); });
+        XlsxWriter.Save(wb, Path.Combine(dir, "edited.xlsx"));
+        var outDir = Path.Combine(dir, "json");
+        var (code, outp) = TestUtil.PsT("excel-batch.ps1", 300_000, "-InDir", dir, "-OutDir", outDir);
+        Assert.True(code == 0, outp);
+        var o = TestUtil.ReadJson(Path.Combine(outDir, "orig.xlsx.json")).RootElement; var e = TestUtil.ReadJson(Path.Combine(outDir, "edited.xlsx.json")).RootElement;
+        foreach (var (r, c) in new[] { (1, 1), (2, 1) })
+        {
+            string a = Cell(o, 0, r, c).GetProperty("rt").GetString()!, b = Cell(e, 0, r, c).GetProperty("rt").GetString()!;
+            Assert.NotEqual(a.Split(';')[0], a.Split(';')[1]);   // il testo ricco ha davvero formattazioni diverse nel file originale
+            Assert.Equal(a, b);
+        }
+        Assert.Equal(99.0, Cell(e, 0, 1, 2).GetProperty("v").GetDouble());
+        Assert.Equal("Grassetto e rosso corsivo", Cell(e, 0, 1, 1).GetProperty("v").GetString());
+    }
 }
