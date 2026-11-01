@@ -313,7 +313,7 @@ public partial class MainWindow
         if (!_hooks || Cur == null) return;
         var (r1, c1, r2, c2) = G.Selection;
         Probe.SetValue(AutomationProperties.NameProperty,
-            $"sel={r1},{c1},{r2},{c2};active={G.ActiveRow},{G.ActiveCol};edit={(Host.Editing ? 1 : 0)};dark={(Theme.Dark ? 1 : 0)};zoom={Host.ZoomPct};sheet={Cur.Name};bar={FormulaBar.Text};canvas={(int)G.ActualWidth}x{(int)G.ActualHeight};filter={(Cur.Filter != null ? 1 : 0)};{Origin()}filter2=1;frozen={Cur.FrozenRows},{Cur.FrozenCols};modified={(Wb.Modified ? 1 : 0)}");
+            $"sel={r1},{c1},{r2},{c2};active={G.ActiveRow},{G.ActiveCol};edit={(Host.Editing ? 1 : 0)};dark={(Theme.Dark ? 1 : 0)};zoom={Host.ZoomPct};sheet={Cur.Name};bar={FormulaBar.Text};canvas={(int)G.ActualWidth}x{(int)G.ActualHeight};filter={(Cur.Filter != null ? 1 : 0)};{Origin()}filter2=1;frozen={Cur.FrozenRows},{Cur.FrozenCols};modified={(Wb.Modified ? 1 : 0)};rb={(int)RibbonOuter.ActualWidth};win={(int)ActualWidth}");
         _undoBtn?.SetCurrentValue(IsEnabledProperty, Wb.CanUndo); _redoBtn?.SetCurrentValue(IsEnabledProperty, Wb.CanRedo);
     }
 

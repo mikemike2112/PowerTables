@@ -113,6 +113,30 @@ public sealed class UiDriver : IDisposable
         bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png);
     }
 
+    public void SetVisualState(WindowVisualState st) => ((WindowPattern)Window.GetCurrentPattern(WindowPattern.Pattern)).SetWindowVisualState(st);
+
+    /// <summary>Ridimensiona la finestra con il TransformPattern (nessun input reale).</summary>
+    public void ResizeTo(double w, double h)
+    {
+        SetVisualState(WindowVisualState.Normal); Thread.Sleep(300);
+        var t = (TransformPattern)Window.GetCurrentPattern(TransformPattern.Pattern);
+        t.Move(10, 10); t.Resize(w, h); Thread.Sleep(600);
+    }
+
+    /// <summary>Cattura dello schermo vero (CopyFromScreen) dell'area occupata dalla finestra che contiene il controllo: per confrontare la resa reale fra le app.</summary>
+    public void ScreenCaptureWindowOf(string id, string path)
+    {
+        var e = Find(id) ?? throw new InvalidOperationException("controllo non trovato: " + id);
+        AutomationElement? w = e; while (w != null && w.Current.NativeWindowHandle == 0) w = TreeWalker.ControlViewWalker.GetParent(w);
+        IntPtr h = (IntPtr)w!.Current.NativeWindowHandle;
+        SetForegroundWindow(h); Thread.Sleep(500);
+        GetWindowRect(h, out var r);
+        using var bmp = new System.Drawing.Bitmap(r.R - r.L, r.B - r.T);
+        using (var g = System.Drawing.Graphics.FromImage(bmp)) g.CopyFromScreen(r.L, r.T, 0, 0, bmp.Size);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+    }
+
     public bool WaitForExit(int ms) => Proc.WaitForExit(ms);
 
     public bool TryProbe(out Dictionary<string, string> p)
@@ -276,6 +300,17 @@ public sealed class UiDriver : IDisposable
         GetWindowRect(Proc.MainWindowHandle, out var r);
         using var bmp = new System.Drawing.Bitmap(r.R - r.L, r.B - r.T);
         using (var g = System.Drawing.Graphics.FromImage(bmp)) { var hdc = g.GetHdc(); PrintWindow(Proc.MainWindowHandle, hdc, 2); g.ReleaseHdc(hdc); }
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+    }
+
+    /// <summary>Cattura dello schermo vero (include popup e menu, che PrintWindow non cattura) nell'area della finestra.</summary>
+    public void ScreenCapture(string path)
+    {
+        EnsureFocus(); Thread.Sleep(300);
+        GetWindowRect(Proc.MainWindowHandle, out var r);
+        using var bmp = new System.Drawing.Bitmap(r.R - r.L, r.B - r.T);
+        using (var g = System.Drawing.Graphics.FromImage(bmp)) g.CopyFromScreen(r.L, r.T, 0, 0, bmp.Size);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png);
     }

@@ -14,6 +14,7 @@ public class UiTests
     [Fact]
     public void Powers_Toggle_SwitchesTheme_Persists_AndSurvivesCorruptSettings()
     {
+        using var lk = UiLock.Acquire();
         string settings = Path.Combine(Path.GetTempPath(), "pt-set-" + Guid.NewGuid().ToString("N") + ".json");
         using (var ui = UiDriver.Launch(settings: settings))
         {
@@ -50,6 +51,7 @@ public class UiTests
     [Fact]
     public void Grid_Typing_Formula_CopyPaste_Fill_Undo()
     {
+        using var lk = UiLock.Acquire();
         using var ui = UiDriver.Launch();
         ui.EnterValue(1, 1, "10", "10");
         Assert.Equal("2,1", ui.Probe()["active"]);                          // Invio scende di una riga
@@ -88,6 +90,7 @@ public class UiTests
     [Fact]
     public void Ribbon_Sort_Filter_Merge_Freeze_Undo()
     {
+        using var lk = UiLock.Acquire();
         using var ui = UiDriver.Launch();
         ui.EnterValue(1, 1, "c", "c"); ui.EnterValue(2, 1, "a", "a"); ui.EnterValue(3, 1, "b", "b");
         var (x1, y1) = ui.CellCenter(1, 1); var (x2, y2) = ui.CellCenter(3, 1);
