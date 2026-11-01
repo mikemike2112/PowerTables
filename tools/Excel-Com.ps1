@@ -47,3 +47,17 @@ function Invoke-XlGuarded($h, [scriptblock]$Block, [int]$TimeoutSec = 120) {
     }
     $r = $job.EndInvoke($ar); $job.Dispose(); return $r
 }
+
+# Bonifica degli autori di commenti/note/thread dentro un pacchetto già aperto in scrittura (System.IO.Compression.ZipArchive).
+# Sostituisce <author>, displayName/userId/providerId di persons e threadedComments con "Corpus" (nessun nome utente nel corpus).
+function Clear-CommentAuthors($zip) {
+    foreach ($e in @($zip.Entries)) {
+        if ($e.FullName -notmatch '^xl/(comments\d*\.xml|persons/.*\.xml|threadedComments/.*\.xml)$') { continue }
+        $sr = New-Object System.IO.StreamReader($e.Open()); $x = $sr.ReadToEnd(); $sr.Close()
+        $x = [regex]::Replace($x, '<author>.*?</author>', '<author>Corpus</author>')
+        $x = [regex]::Replace($x, '(displayName|userId)="[^"]*"', '$1="Corpus"')
+        $x = [regex]::Replace($x, 'providerId="[^"]*"', 'providerId="None"')
+        $name = $e.FullName; $e.Delete()
+        $ne = $zip.CreateEntry($name); $sw = New-Object System.IO.StreamWriter($ne.Open(), (New-Object System.Text.UTF8Encoding($false))); $sw.Write($x); $sw.Close()
+    }
+}

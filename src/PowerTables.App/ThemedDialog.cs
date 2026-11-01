@@ -118,13 +118,13 @@ public sealed class ThemedDialog : Window
     public static SaveResult AskSave(Window? owner, SaveMode mode, string? existingPath, string docName, string suggestedName, string folder, string ext, string filter)
     {
         bool needPath = mode == SaveMode.SaveAs || existingPath == null;
-        string title = mode == SaveMode.SaveAs ? "Salva con nome" : "Salvare le modifiche?";
-        string msg = mode == SaveMode.SaveAs ? "" : $"Vuoi salvare le modifiche a «{docName}»?";
+        string title = mode == SaveMode.SaveAs ? "Salva con nome" : $"Vuoi salvare le modifiche a «{docName}»?";
+        string msg = mode == SaveMode.SaveAs ? "" : "Se non salvi, le modifiche andranno perse.";
         var d = new ThemedDialog(owner, title, msg, mode == SaveMode.SaveAs ? DialogIcon.Info : DialogIcon.Question);
         TextBox? nameBox = null, folderBox = null; TextBlock? err = null;
         if (needPath)
         {
-            nameBox = Box(suggestedName, "FileName");
+            nameBox = Box(mode == SaveMode.PromptDirty ? Path.GetFileNameWithoutExtension(docName) : suggestedName, "FileName"); // stesso nome mostrato nella domanda
             d.Body.Children.Add(Label("Nome file")); d.Body.Children.Add(nameBox);
             var row = new DockPanel();
             var browse = new Button { Content = "Sfoglia…", Margin = new Thickness(8, 0, 0, 0), Template = ButtonTemplate(false), Foreground = Theme.Brush(Theme.Text), FontFamily = new FontFamily("Segoe UI"), FontSize = 13 };
