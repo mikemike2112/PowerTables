@@ -17,7 +17,7 @@ public class PrivacyShieldTests
     static void Wr(ZipArchive z, string n, string t) { z.GetEntry(n)?.Delete(); using var w = new StreamWriter(z.CreateEntry(n).Open(), new UTF8Encoding(false)); w.Write(t); }
 
     /// <summary>File con dati personali NOTI (finti): parte da un file di Excel vero del corpus e ci inietta autori, società, proprietà, miniatura e percorso locale.</summary>
-    static string MakeDirty()
+    internal static string MakeDirty()
     {
         string p = Work("sporco.xlsx"); File.Copy(TestUtil.Corpus("office-made", "comments-notes.xlsx"), p, true);
         using var z = ZipFile.Open(p, ZipArchiveMode.Update);
@@ -40,9 +40,9 @@ public class PrivacyShieldTests
         return p;
     }
 
-    static string Hash(string p) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(p)));
+    internal static string Hash(string p) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(p)));
 
-    static string AllText(string p)
+    internal static string AllText(string p)
     {
         var sb = new StringBuilder(); using var z = ZipFile.OpenRead(p);
         foreach (var e in z.Entries) { using var s = e.Open(); var ms = new MemoryStream(); s.CopyTo(ms); sb.AppendLine(e.FullName).AppendLine(Encoding.UTF8.GetString(ms.ToArray())); }

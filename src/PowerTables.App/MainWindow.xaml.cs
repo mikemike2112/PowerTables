@@ -38,7 +38,7 @@ public partial class MainWindow : Window
         G.SelectionChanged += OnSelection;
         G.CopyRequested += () => DoCopy(false); G.CutRequested += () => DoCopy(true); G.PasteRequested += DoPaste;
         G.FilterMenuRequested += ShowFilterMenu;
-        Host.EditTextChanged += t => { if (!FormulaBar.IsKeyboardFocusWithin) FormulaBar.Text = t; };
+        Host.EditTextChanged += t => { if (!FormulaBar.IsKeyboardFocusWithin) FormulaBar.Text = t; UpdateProbe(); };
         Host.EditEnded += RefreshBar;
         FormulaBar.PreviewKeyDown += (_, e) =>
         {

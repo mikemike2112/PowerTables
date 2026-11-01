@@ -68,3 +68,8 @@ formati, unioni, riquadri e filtri del corpus; i colori di sfondo/testo esplicit
 
 ## Limiti noti
 Vedere `FEATURES.md` per le voci non spuntate.
+
+## Scudo privacy (misurato)
+- Test con file dai dati noti (autore, ultimo autore, società, responsabile, proprietà personalizzata, autore di commento, miniatura, percorso `C:\Users\...` in `xl/workbook.xml`): la copia, scansionata parte per parte, non contiene più nessuno dei valori; l'originale resta identico byte per byte (SHA-256); Excel vero apre la copia senza ripristino con celle e numero di commenti uguali (modalità anonimizza) o senza commenti (modalità rimuovi); un file già pulito dà "niente trovato".
+- Riserve sempre elencate: EXIF delle immagini, oggetti incorporati, macro, righe/colonne e fogli nascosti, collegamenti esterni a percorsi locali, testo delle celle e dei commenti. Non analizzato: contenuto delle celle.
+- Osservato: Excel scrive nei file un `x15ac:absPath` con il percorso della cartella di salvataggio (nel corpus: `C:\dev\powertables\tests\corpus\office-made\`): non contiene il nome utente, ma lo Scudo lo segnala se contiene `\Users\nome`.

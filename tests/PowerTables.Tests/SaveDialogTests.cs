@@ -74,6 +74,7 @@ public class SaveDialogUiTests
             Assert.NotNull(ui.Find("Dlg_Browse")); Assert.NotNull(ui.Find("Dlg_Cancel")); Assert.NotNull(ui.Find("Dlg_DontSave"));
             Thread.Sleep(500);
             ui.ScreenshotWindowOf("Dlg_Save", Docs(file));
+            ui.ScreenCaptureWindowOf("Dlg_Save", Path.Combine(TestUtil.Root, "tests", "work", "docs", "schermo-" + file));   // cattura dello schermo vero, solo in tests/work
             ui.InvokeId("Dlg_Cancel");
             Assert.StartsWith("Cancel|", Result(res));
             ui.KillOwn();

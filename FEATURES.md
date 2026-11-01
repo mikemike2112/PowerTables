@@ -28,6 +28,9 @@ Non è stato possibile pilotare la UI con mouse/tastiera in modo automatico (nie
 - [x] P0 Errori Excel (`#DIV/0!`, `#N/A`, `#VALUE!`, `#REF!`, `#NAME?`, `#NUM!`, `#NULL!`)
 - [x] P0 173 funzioni (matematica, statistica, logica, testo, ricerca, data/ora, finanza di base), 149 confrontate con Excel vero (`COMPAT.md`)
 - [x] P0 Formule salvate in forma invariante con prefissi `_xlfn.` corretti; formule matriciali/dinamiche e funzioni sconosciute conservate con valore in cache
+- [x] P0 Elenco funzioni scrivendo `=` (filtro mentre si digita, Tab completa), selezione dinamica dei riferimenti (clic, trascinamento, frecce, Maiusc+frecce; mai assoluti da soli; il clic in un punto non valido non conferma)
+- [x] P0 Scheda Formule: Inserisci funzione (ricerca per nome inglese/italiano) e categorie Finanziarie, Logiche, Testo, Data e ora, Ricerca e riferimento, Matematiche, Statistiche
+- [x] P0 Nomi di funzione italiani e separatore `;` con virgola decimale digitati a mano (`=SOMMA(A1;A2;0,5)`): nel file restano nomi inglesi e virgola
 - [ ] P1 Riferimenti strutturati di tabella, riferimenti 3D, intersezione, calcolo iterativo, funzioni mancanti (statistiche avanzate, `IRR`, `RATE`, `FILTER`/`SORT`/`UNIQUE` come array dinamici, `LET`/`LAMBDA`)
 - [ ] P1 Gestione nomi, Controllo errori, Valuta formula, precedenti/dipendenti
 
@@ -54,3 +57,9 @@ Non è stato possibile pilotare la UI con mouse/tastiera in modo automatico (nie
 ## Stato round-trip (aggiornamento)
 - [x] Testo ricco delle celle conservato al salvataggio anche nelle righe riscritte (test su Excel vero).
 - I test UI con input reale (UiTests) sono ora con finestra Topmost e ripetizioni su condizione: 3 esecuzioni consecutive isolate 3/3; nella suite completa ne è fallito uno su una singola esecuzione (vedi report).
+
+## Aggiornamento giro "todo"
+- [x] Schede Disegno e Revisione e comando Dati > Da Web tolti dall'interfaccia (il contenuto già presente nei file resta conservato al salvataggio).
+- [x] Pulsante ingrandisci: un quadrato a finestra, due quadrati a schermo intero, aggiornato a ogni cambio di stato (test UI Automation). Tooltip "Ingrandisci" / "Ripristina giù".
+- [x] Ridimensionamento: barra del titolo (ricerca e titolo si stringono), schede in più nel menu «⋯», gruppi del ribbon compattati a sole icone e poi nel menu «»»; larghezza minima 640 (screenshot a massimizzata, 1100, 800 e minima).
+- [x] Powers > Scudo privacy: analizza il file salvato (autore, ultimo autore, società, responsabile, proprietà personalizzate, autori di commenti/persone/revisioni, percorsi con nome utente, miniatura), crea una copia `nome (pulito).xlsx` (anonimizza o rimuove commenti), ricontrolla la copia ed elenca le riserve. Non tocca mai il file aperto.

@@ -93,8 +93,9 @@ public partial class MainWindow
         if (after.Warnings.Count > 0) { sb.AppendLine(); sb.AppendLine("Riserve:"); foreach (var w in after.Warnings) sb.AppendLine("• " + w); }
         sb.AppendLine(); sb.Append("Questo controllo copre solo i metadati elencati: non garantisce l'assenza di altri dati personali nel contenuto.");
         var d = new ThemedDialog(this, "Scudo privacy", "", after.Findings.Count == 0 ? DialogIcon.Info : DialogIcon.Warning);
-        d.Body.Children.Add(Note(sb.ToString(), 13, false, 8));
-        AutomationProperties.SetAutomationId(d.Body, "Priv_Result");
+        var note = Note(sb.ToString(), 13, false, 8);
+        AutomationProperties.SetAutomationId(note, "Priv_Result"); AutomationProperties.SetName(note, sb.ToString());
+        d.Body.Children.Add(note);
         d.AddButton("OK", "Ok", primary: true, cancel: true);
         d.ShowDialog();
     }
