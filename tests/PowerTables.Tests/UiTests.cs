@@ -17,14 +17,14 @@ public class UiTests
         using (var ui = UiDriver.Launch(settings: settings))
         {
             ui.WaitProbe("dark", "1");                          // predefinito scuro
-            ui.Click("Tab_Powers");
+            ui.ClickUntil("Tab_Powers", "DarkModeToggle");
             ui.Screenshot(Docs("screenshot-powers-dark.png"));
             ui.Click("DarkModeToggle");
             ui.WaitProbe("dark", "0");                          // il clic reale ha cambiato tutta l'interfaccia
             ui.Screenshot(Docs("screenshot-powers-light.png"));
-            ui.Click("Tab_Home");
+            ui.ClickUntil("Tab_Home", "Incolla");
             ui.Screenshot(Docs("screenshot-light.png"));
-            ui.Click("Tab_Powers"); ui.Click("DarkModeToggle");
+            ui.ClickUntil("Tab_Powers", "DarkModeToggle"); ui.Click("DarkModeToggle");
             ui.WaitProbe("dark", "1");
             ui.Click("DarkModeToggle");                                     // lascia chiaro
             ui.KillOwn();
@@ -50,10 +50,10 @@ public class UiTests
     public void Grid_Typing_Formula_CopyPaste_Fill_Undo()
     {
         using var ui = UiDriver.Launch();
-        ui.ClickCell(1, 1); ui.Type("10"); ui.Key("{ENTER}");
+        ui.EnterValue(1, 1, "10", "10");
         Assert.Equal("2,1", ui.Probe()["active"]);                          // Invio scende di una riga
-        ui.Type("20"); ui.Key("{ENTER}");
-        ui.ClickCell(3, 1); ui.Type("=A1+A2"); ui.Key("{ENTER}");
+        ui.EnterValue(2, 1, "20", "20");
+        ui.EnterValue(3, 1, "=A1+A2", "30");
         var d = ui.DumpUntil(x => Cell(x, "A3") == "30");
         Assert.Equal("10", Cell(d, "A1")); Assert.Equal("30", Cell(d, "A3"));
         Assert.Equal("=A1+A2", d.GetProperty("cells").GetProperty("A3").GetProperty("f").GetString());
@@ -85,10 +85,10 @@ public class UiTests
     public void Ribbon_Sort_Filter_Merge_Freeze_Undo()
     {
         using var ui = UiDriver.Launch();
-        ui.ClickCell(1, 1); ui.Type("c"); ui.Key("{ENTER}"); ui.Type("a"); ui.Key("{ENTER}"); ui.Type("b"); ui.Key("{ENTER}");
+        ui.EnterValue(1, 1, "c", "c"); ui.EnterValue(2, 1, "a", "a"); ui.EnterValue(3, 1, "b", "b");
         var (x1, y1) = ui.CellCenter(1, 1); var (x2, y2) = ui.CellCenter(3, 1);
         ui.DragFrom(x1, y1, x2, y2);
-        ui.Click("Tab_Dati"); ui.Click("Ordina dalla A alla Z");
+        ui.ClickUntil("Tab_Dati", "Ordina dalla A alla Z"); ui.Click("Ordina dalla A alla Z");
         var d = ui.DumpUntil(x => Cell(x, "A1") == "a");
         Assert.Equal("a", Cell(d, "A1")); Assert.Equal("c", Cell(d, "A3"));
         ui.Key("^z");
@@ -99,15 +99,15 @@ public class UiTests
         ui.Click("Filtro");
         ui.WaitProbe("filter", "0");
         // unione
-        ui.Click("Tab_Home");
+        ui.ClickUntil("Tab_Home", "Unisci e centra");
         (x1, y1) = ui.CellCenter(5, 1); (x2, y2) = ui.CellCenter(5, 2);
         ui.DragFrom(x1, y1, x2, y2);
         ui.Click("Unisci e centra");
         d = ui.DumpUntil(x => x.GetProperty("merges").GetArrayLength() > 0);
         Assert.Contains("A5:B5", d.GetProperty("merges").EnumerateArray().Select(m => m.GetString()));
         // blocca riquadri
-        ui.Click("Tab_Visualizza"); ui.Click("Blocca riquadri"); ui.Click("Blocca riga superiore");
-        ui.WaitProbe("frozen", "1,0");
+        ui.ClickUntil("Tab_Visualizza", "Blocca riquadri");
+        ui.Retry(() => { ui.ClickUntil("Blocca riquadri", "Blocca riga superiore"); ui.Click("Blocca riga superiore"); }, () => ui.TryProbe(out var pr) && pr["frozen"] == "1,0");
         ui.Screenshot(Docs("screenshot-ui-session.png"));
         ui.KillOwn();
     }

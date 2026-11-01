@@ -24,7 +24,7 @@ public partial class MainWindow : Window
     readonly GridHost Host = new();
     GridCanvas G => Host.Canvas;
     Sheet Cur => G.Sheet;
-    ClipData? _clip; string? _clipText;
+    ClipData? _clip; string? _clipText, _clipId;
     CultureInfo Ci => CultureInfo.CurrentCulture;
     ToggleButton? _bold, _italic, _underline;
 
@@ -255,7 +255,8 @@ public partial class MainWindow : Window
             sb.Append("\r\n");
         }
         _clipText = sb.ToString();
-        try { Clipboard.SetText(_clipText); } catch (System.Runtime.InteropServices.ExternalException) { }
+        _clipId = Guid.NewGuid().ToString("N");
+        try { var o = new DataObject(); o.SetText(_clipText); o.SetData("PowerTables.Clip", _clipId); Clipboard.SetDataObject(o, true); } catch (System.Runtime.InteropServices.ExternalException) { }
         G.Marching = _clip;
     }
 
@@ -264,9 +265,10 @@ public partial class MainWindow : Window
         try
         {
             string? text = null;
-            try { text = Clipboard.ContainsText() ? Clipboard.GetText() : null; } catch (System.Runtime.InteropServices.ExternalException) { }
+            bool own = false;
+            try { text = Clipboard.ContainsText() ? Clipboard.GetText() : null; own = Clipboard.ContainsData("PowerTables.Clip") && Clipboard.GetData("PowerTables.Clip") as string == _clipId; } catch (System.Runtime.InteropServices.ExternalException) { }
             (int, int) end;
-            if (_clip != null && (text == null || text == _clipText)) { end = Wb.Paste(_clip, Cur, G.ActiveRow, G.ActiveCol); if (_clip.Cut) { _clip = null; G.Marching = null; } }
+            if (_clip != null && (own || text == null)) { end = Wb.Paste(_clip, Cur, G.ActiveRow, G.ActiveCol); if (_clip.Cut) { _clip = null; G.Marching = null; } }
             else if (text != null) end = Wb.PasteText(Cur, G.ActiveRow, G.ActiveCol, text, Ci);
             else return;
             G.SelectRange(G.ActiveRow, G.ActiveCol, end.Item1, end.Item2);

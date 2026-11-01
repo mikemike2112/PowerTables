@@ -120,6 +120,27 @@ public sealed class UiDriver : IDisposable
         return null;
     }
 
+    /// <summary>Clic su un controllo; se il controllo "dopo" non compare (clic perso per il focus) ripete il clic fino a 3 volte.</summary>
+    public void ClickUntil(string name, string expectedNext)
+    {
+        for (int i = 0; i < 3; i++) { Click(name); if (Find(expectedNext, 5000) != null) return; }
+        throw new InvalidOperationException($"dopo il clic su {name} non compare {expectedNext}");
+    }
+
+    /// <summary>Esegue l'azione e riprova (fino a 3 volte) finché la condizione non è vera: l'input reale può perdersi se un'altra app prende il focus.</summary>
+    public void Retry(Action act, Func<bool> done)
+    {
+        for (int i = 0; i < 3; i++) { act(); for (int w = 0; w < 10; w++) { if (done()) return; Thread.Sleep(200); } }
+        Assert.True(done(), "azione non riuscita dopo 3 tentativi");
+    }
+
+    /// <summary>Seleziona la cella con un clic e digita il testo seguito da Invio; verifica il contenuto nel dump.</summary>
+    public void EnterValue(int row, int col, string text, string expectedDisplay)
+    {
+        string a1 = ((char)('A' + col - 1)).ToString() + row;
+        Retry(() => { ClickCell(row, col); Type(text); Key("{ENTER}"); }, () => { try { var d = Dump(); return d.GetProperty("cells").TryGetProperty(a1, out var c) && c.GetProperty("text").GetString() == expectedDisplay; } catch (Exception e) when (e is KeyNotFoundException or InvalidOperationException) { return false; } });
+    }
+
     public void Click(string name)
     {
         var e = Find(name) ?? throw new InvalidOperationException("controllo non trovato: " + name);
