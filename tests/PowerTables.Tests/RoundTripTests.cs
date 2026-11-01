@@ -273,5 +273,12 @@ public class RoundTripTests(RtFixture fx)
         using var z = ZipFile.OpenRead(Path.Combine(fx.Orig, f));
         string core; using (var r = new StreamReader(z.GetEntry("docProps/core.xml")!.Open())) core = r.ReadToEnd();
         Assert.Contains("<dc:creator>Corpus</dc:creator>", core); Assert.Contains("<cp:lastModifiedBy>Corpus</cp:lastModifiedBy>", core);
+        // autori di commenti, note e thread dentro il file
+        foreach (var e in z.Entries.Where(e => Regex.IsMatch(e.FullName, @"^xl/(comments\d*\.xml|persons/.*\.xml|threadedComments/.*\.xml)$")))
+        {
+            string x; using (var r = new StreamReader(e.Open())) x = r.ReadToEnd();
+            foreach (Match m in Regex.Matches(x, "<author>(.*?)</author>")) Assert.Equal("Corpus", m.Groups[1].Value);
+            foreach (Match m in Regex.Matches(x, "(displayName|userId)=\"([^\"]*)\"")) Assert.Equal("Corpus", m.Groups[2].Value);
+        }
     }
 }

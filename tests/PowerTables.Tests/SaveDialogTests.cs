@@ -67,16 +67,16 @@ public class SaveDialogUiTests
     {
         foreach (var (dark, file) in new[] { (true, "dialog-salva-scuro.png"), (false, "dialog-salva-chiaro.png") })
         {
-            string dir = NewDir();
-            using var ui = UiDriver.LaunchDemo("save:" + dir, dark, out var res);
+            // cartella finta solo per lo screenshot (niente dati personali nel repository); Annulla non la usa
+            using var ui = UiDriver.LaunchDemo(@"save:C:\Documenti", dark, out var res);
             Assert.Equal("Nome file", ui.NameOf("Dlg_FileName"));
+            Assert.Equal("Senza titolo", ui.ValueOf("Dlg_FileName"));
             Assert.NotNull(ui.Find("Dlg_Browse")); Assert.NotNull(ui.Find("Dlg_Cancel")); Assert.NotNull(ui.Find("Dlg_DontSave"));
             Thread.Sleep(500);
             ui.ScreenshotWindowOf("Dlg_Save", Docs(file));
             ui.InvokeId("Dlg_Cancel");
             Assert.StartsWith("Cancel|", Result(res));
             ui.KillOwn();
-            Directory.Delete(dir, true);
         }
     }
 

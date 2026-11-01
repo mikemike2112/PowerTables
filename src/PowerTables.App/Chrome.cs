@@ -193,9 +193,9 @@ public partial class MainWindow
         string result;
         switch (kind)
         {
-            case "save": { var r = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.PromptDirty, null, "Senza titolo.xlsx", "Cartel1", folder, ".xlsx", XlsxFilter); result = r.Choice + "|" + r.Path; break; }
+            case "save": { var r = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.PromptDirty, null, "Senza titolo.xlsx", "Senza titolo", folder, ".xlsx", XlsxFilter); result = r.Choice + "|" + r.Path; break; }
             case "savefile": { var r = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.PromptDirty, System.IO.Path.Combine(folder, "bilancio.xlsx"), "bilancio.xlsx", "x", folder, ".xlsx", XlsxFilter); result = r.Choice + "|" + r.Path; break; }
-            case "saveas": { var r = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.SaveAs, null, "", "Cartel1", folder, ".xlsx", XlsxFilter); result = r.Choice + "|" + r.Path; break; }
+            case "saveas": { var r = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.SaveAs, null, "", "Senza titolo", folder, ".xlsx", XlsxFilter); result = r.Choice + "|" + r.Path; break; }
             default: ThemedDialog.Notify(this, "Il file non è un documento .xlsx valido o è danneggiato.", DialogIcon.Error, "Apertura non riuscita"); result = "ok"; break;
         }
         var path = Environment.GetEnvironmentVariable("PT_DEMO_RESULT");

@@ -21,6 +21,7 @@ try {
             $x = [regex]::Replace($x, '<cp:lastModifiedBy>.*?</cp:lastModifiedBy>', '<cp:lastModifiedBy>Corpus</cp:lastModifiedBy>')
             $e.Delete(); $ne = $zip.CreateEntry($n); $sw = New-Object System.IO.StreamWriter($ne.Open(), (New-Object System.Text.UTF8Encoding($false))); $sw.Write($x); $sw.Close()
         }
+        Clear-CommentAuthors $zip
         $a = $zip.GetEntry('docProps/app.xml'); $sr = New-Object System.IO.StreamReader($a.Open()); $x = $sr.ReadToEnd(); $sr.Close()
         $x = [regex]::Replace($x, '<Company>.*?</Company>', '<Company></Company>'); $a.Delete()
         $na = $zip.CreateEntry('docProps/app.xml'); $sw = New-Object System.IO.StreamWriter($na.Open(), (New-Object System.Text.UTF8Encoding($false))); $sw.Write($x); $sw.Close()

@@ -18,6 +18,7 @@ function Set-CorpusMeta([string]$path) {
             $e.Delete()
             $ne = $zip.CreateEntry('docProps/core.xml'); $sw = New-Object System.IO.StreamWriter($ne.Open(), (New-Object System.Text.UTF8Encoding($false))); $sw.Write($x); $sw.Close()
         }
+        Clear-CommentAuthors $zip
         $a = $zip.GetEntry('docProps/app.xml')
         if ($a) {
             $sr = New-Object System.IO.StreamReader($a.Open()); $x = $sr.ReadToEnd(); $sr.Close()

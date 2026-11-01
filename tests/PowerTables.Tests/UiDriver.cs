@@ -96,6 +96,8 @@ public sealed class UiDriver : IDisposable
         ((ValuePattern)e.GetCurrentPattern(ValuePattern.Pattern)).SetValue(text);
     }
 
+    public string? ValueOf(string id) => Find(id, 1500) is { } e && e.TryGetCurrentPattern(ValuePattern.Pattern, out var p) ? ((ValuePattern)p).Current.Value : null;
+
     public string? NameOf(string id) => Find(id, 1500)?.Current.Name;
 
     /// <summary>PrintWindow della sola finestra che contiene il controllo indicato.</summary>

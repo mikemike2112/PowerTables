@@ -104,7 +104,7 @@ public partial class MainWindow : Window
         if (!Wb.Modified) return true;
         string? existing = Wb.FilePath != null && Wb.FilePath.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) ? Wb.FilePath : null;
         string name = existing != null ? Path.GetFileName(existing) : "Senza titolo.xlsx";
-        var res = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.PromptDirty, existing, name, "Cartel1", DefaultFolder(), ".xlsx", XlsxFilter);
+        var res = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.PromptDirty, existing, name, "Senza titolo", DefaultFolder(), ".xlsx", XlsxFilter);
         var outcome = SaveLogic.Map(res.Choice);
         if (!outcome.WriteFile) return outcome.Proceed;
         return SaveTo(res.Path ?? existing!);
@@ -145,7 +145,7 @@ public partial class MainWindow : Window
         string? path = Wb.FilePath;
         if (asNew || path == null || !path.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
         {
-            var res = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.SaveAs, null, "", path != null ? Path.GetFileNameWithoutExtension(path) : "Cartel1", DefaultFolder(), ".xlsx", XlsxFilter);
+            var res = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.SaveAs, null, "", path != null ? Path.GetFileNameWithoutExtension(path) : "Senza titolo", DefaultFolder(), ".xlsx", XlsxFilter);
             if (res.Choice != SaveLogic.Choice.Save || res.Path == null) return false;
             path = res.Path;
         }
