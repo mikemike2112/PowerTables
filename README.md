@@ -18,7 +18,7 @@ Non completati: vedere le voci non spuntate in FEATURES.md (grafici/immagini con
 dotnet build PowerTables.sln -c Release
 src\PowerTables.App\bin\Release\net10.0-windows\PowerTables.App.exe [file.xlsx]    # --light per il tema chiaro
 dotnet test                                    # tutti i test (usano Excel desktop via COM se installato)
-dotnet test --filter "Category!=OfficeCom&Category!=Load"   # solo i test senza Excel
+dotnet test --filter "Category!=OfficeCom&Category!=Load&Category!=Ui"   # solo i test senza Excel
 ```
 Strumenti in `tools/`: `make-corpus.ps1` (rigenera il corpus con Excel vero), `excel-batch.ps1` / `excel-dump.ps1` (apertura in Excel, rilevatore di errori/ripristino, dump invariante con `Formula`/`Value2`),
 `inventory-ribbon.ps1` (inventario del ribbon), `screenshot-app.ps1`. Gli script avviano un'istanza Excel privata e nascosta, la chiudono sempre e terminano al più il proprio PID.

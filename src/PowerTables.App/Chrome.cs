@@ -186,6 +186,22 @@ public partial class MainWindow
         if (!on) { _tabButtons[_curTab].IsChecked = true; G.Focus(); }
     }
 
+    /// <summary>Solo per test e screenshot (--demo-dialog tipo[:cartella]): mostra una finestra di dialogo e scrive l'esito in PT_DEMO_RESULT.</summary>
+    public void DemoDialog(string spec)
+    {
+        string kind = spec.Split(':')[0]; string folder = spec.Contains(':') ? spec[(spec.IndexOf(':') + 1)..] : DefaultFolder();
+        string result;
+        switch (kind)
+        {
+            case "save": { var r = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.PromptDirty, null, "Senza titolo.xlsx", "Cartel1", folder, ".xlsx", XlsxFilter); result = r.Choice + "|" + r.Path; break; }
+            case "savefile": { var r = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.PromptDirty, System.IO.Path.Combine(folder, "bilancio.xlsx"), "bilancio.xlsx", "x", folder, ".xlsx", XlsxFilter); result = r.Choice + "|" + r.Path; break; }
+            case "saveas": { var r = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.SaveAs, null, "", "Cartel1", folder, ".xlsx", XlsxFilter); result = r.Choice + "|" + r.Path; break; }
+            default: ThemedDialog.Notify(this, "Il file non è un documento .xlsx valido o è danneggiato.", DialogIcon.Error, "Apertura non riuscita"); result = "ok"; break;
+        }
+        var path = Environment.GetEnvironmentVariable("PT_DEMO_RESULT");
+        if (path != null) File.WriteAllText(path, result);
+    }
+
     // ---------- sonda e dump per i test UI (solo con PT_TEST_HOOKS=1) ----------
     void UpdateProbe()
     {

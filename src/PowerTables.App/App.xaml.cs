@@ -9,7 +9,7 @@ public partial class App : Application
         base.OnStartup(e);
         DispatcherUnhandledException += (_, ex) =>
         {
-            MessageBox.Show(ex.Exception.Message, "PowerTables", MessageBoxButton.OK, MessageBoxImage.Error);
+            ThemedDialog.Notify(null, ex.Exception.Message);
             ex.Handled = true;
         };
         var args = e.Args;
@@ -18,6 +18,8 @@ public partial class App : Application
         Theme.Apply(Resources);
         var w = new MainWindow();
         w.Show();
+        int di = Array.IndexOf(args, "--demo-dialog");
+        if (di >= 0 && di + 1 < args.Length) Dispatcher.BeginInvoke(new Action(() => w.DemoDialog(args[di + 1])), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         int bi = Array.IndexOf(args, "--bench");
         var file = bi >= 0 ? null : args.FirstOrDefault(a => !a.StartsWith("--"));
         if (file != null) w.OpenFile(file);

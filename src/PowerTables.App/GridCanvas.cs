@@ -680,7 +680,7 @@ public sealed class GridCanvas : FrameworkElement
                         else if (!_fillVert && (tc > _fillC2 || tc < _fillC1)) { Wb.AutoFill(Sheet, _fillR1, _fillC1, _fillR2, _fillC2, _fillR2, tc); SelectRange(_fillR1, Math.Min(_fillC1, tc), _fillR2, Math.Max(_fillC2, tc)); }
                         else SelectRange(_fillR1, _fillC1, _fillR2, _fillC2);
                     }
-                    catch (Exception ex) when (ex is FormatException or InvalidOperationException) { MessageBox.Show(ex.Message); }
+                    catch (Exception ex) when (ex is FormatException or InvalidOperationException) { ThemedDialog.Notify(Window.GetWindow(this), ex.Message, DialogIcon.Warning); }
                     break;
                 }
         }
