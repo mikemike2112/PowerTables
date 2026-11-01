@@ -69,6 +69,50 @@ public sealed class UiDriver : IDisposable
         return d;
     }
 
+    /// <summary>Avvia l'app con --demo-dialog (nessun input reale: i controlli si pilotano solo con UI Automation).</summary>
+    public static UiDriver LaunchDemo(string spec, bool dark, out string resultPath, string? waitFor = "Dlg_Save")
+    {
+        string settings = Path.Combine(Path.GetTempPath(), "pt-set-" + Guid.NewGuid().ToString("N") + ".json");
+        File.WriteAllText(settings, dark ? "{\"dark\":true}" : "{\"dark\":false}");
+        resultPath = Path.Combine(Path.GetTempPath(), "pt-demo-" + Guid.NewGuid().ToString("N") + ".txt");
+        var d = new UiDriver { SettingsPath = settings, DumpPath = Path.Combine(Path.GetTempPath(), "pt-dump-" + Guid.NewGuid().ToString("N") + ".json") };
+        var psi = new ProcessStartInfo(Path.Combine(TestUtil.Root, "src", "PowerTables.App", "bin", "Debug", "net10.0-windows", "PowerTables.App.exe")) { UseShellExecute = false };
+        psi.Environment["PT_SETTINGS"] = settings; psi.Environment["PT_DEMO_RESULT"] = resultPath;
+        psi.ArgumentList.Add("--demo-dialog"); psi.ArgumentList.Add(spec);
+        d.Proc = Process.Start(psi)!;
+        if (waitFor != null && d.Find(waitFor, 30000) == null) { d.KillOwn(); throw new TimeoutException("dialogo non comparso"); }
+        return d;
+    }
+
+    public void InvokeId(string id)
+    {
+        var e = Find(id) ?? throw new InvalidOperationException("controllo non trovato: " + id);
+        ((InvokePattern)e.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
+    }
+
+    public void SetValueId(string id, string text)
+    {
+        var e = Find(id) ?? throw new InvalidOperationException("controllo non trovato: " + id);
+        ((ValuePattern)e.GetCurrentPattern(ValuePattern.Pattern)).SetValue(text);
+    }
+
+    public string? NameOf(string id) => Find(id, 1500)?.Current.Name;
+
+    /// <summary>PrintWindow della sola finestra che contiene il controllo indicato.</summary>
+    public void ScreenshotWindowOf(string id, string path)
+    {
+        var e = Find(id) ?? throw new InvalidOperationException("controllo non trovato: " + id);
+        AutomationElement? w = e; while (w != null && w.Current.NativeWindowHandle == 0) w = TreeWalker.ControlViewWalker.GetParent(w);
+        IntPtr h = (IntPtr)w!.Current.NativeWindowHandle;
+        GetWindowRect(h, out var r);
+        using var bmp = new System.Drawing.Bitmap(r.R - r.L, r.B - r.T);
+        using (var g = System.Drawing.Graphics.FromImage(bmp)) { var hdc = g.GetHdc(); PrintWindow(h, hdc, 2); g.ReleaseHdc(hdc); }
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+    }
+
+    public bool WaitForExit(int ms) => Proc.WaitForExit(ms);
+
     public bool TryProbe(out Dictionary<string, string> p)
     {
         p = [];
@@ -114,7 +158,7 @@ public sealed class UiDriver : IDisposable
         var pid = new PropertyCondition(AutomationElement.ProcessIdProperty, Proc.Id);
         while (sw.ElapsedMilliseconds < timeoutMs)
         {
-            var e = Window.FindFirst(TreeScope.Descendants, cond);
+            AutomationElement? e = Window?.FindFirst(TreeScope.Descendants, cond);
             if (e != null) return e;
             // popup e menu sono finestre di primo livello dello stesso processo
             foreach (AutomationElement w in AutomationElement.RootElement.FindAll(TreeScope.Children, pid))

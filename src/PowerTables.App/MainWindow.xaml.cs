@@ -52,7 +52,7 @@ public partial class MainWindow : Window
         {
             if (e.Key != Key.Enter) return;
             if (Addr.TryParseRange(NameBox.Text.Replace("$", ""), out var r1, out var c1, out var r2, out var c2)) { G.SelectRange(r1, c1, r2, c2); G.EnsureVisible(r1, c1); G.Focus(); }
-            else MessageBox.Show(this, "Riferimento non valido.", "PowerTables");
+            else ThemedDialog.Notify(this, "Riferimento non valido.", DialogIcon.Warning);
             e.Handled = true;
         };
         Drop += (_, e) => { if (e.Data.GetData(DataFormats.FileDrop) is string[] f && f.Length > 0) OpenFile(f[0]); };
@@ -102,10 +102,12 @@ public partial class MainWindow : Window
     bool ConfirmDiscard()
     {
         if (!Wb.Modified) return true;
-        var r = MessageBox.Show(this, "Salvare le modifiche?", "PowerTables", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
-        if (r == MessageBoxResult.Cancel) return false;
-        if (r == MessageBoxResult.Yes) return Save(false);
-        return true;
+        string? existing = Wb.FilePath != null && Wb.FilePath.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) ? Wb.FilePath : null;
+        string name = existing != null ? Path.GetFileName(existing) : "Senza titolo.xlsx";
+        var res = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.PromptDirty, existing, name, "Cartel1", DefaultFolder(), ".xlsx", XlsxFilter);
+        var outcome = SaveLogic.Map(res.Choice);
+        if (!outcome.WriteFile) return outcome.Proceed;
+        return SaveTo(res.Path ?? existing!);
     }
 
     void Open()
@@ -125,8 +127,8 @@ public partial class MainWindow : Window
             SetWorkbook(wb);
             StatusRight.Text = $"Aperto in {sw.Elapsed.TotalSeconds:0.00} s - {wb.Sheets.Sum(s => s.CellCount):N0} celle";
         }
-        catch (XlsxException ex) { MessageBox.Show(this, ex.Message, "PowerTables", MessageBoxButton.OK, MessageBoxImage.Error); }
-        catch (IOException ex) { MessageBox.Show(this, "Errore di lettura: " + ex.Message, "PowerTables", MessageBoxButton.OK, MessageBoxImage.Error); }
+        catch (XlsxException ex) { ThemedDialog.Notify(this, "Impossibile aprire il file: " + ex.Message, DialogIcon.Error, "Apertura non riuscita"); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { ThemedDialog.Notify(this, "Errore di lettura: " + ex.Message, DialogIcon.Error, "Apertura non riuscita"); }
         finally { Cursor = null; }
     }
 
@@ -143,10 +145,20 @@ public partial class MainWindow : Window
         string? path = Wb.FilePath;
         if (asNew || path == null || !path.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
         {
-            var dlg = new SaveFileDialog { Filter = "Cartella di lavoro (*.xlsx)|*.xlsx", FileName = path != null ? Path.GetFileNameWithoutExtension(path) + ".xlsx" : "Cartel1.xlsx" };
-            if (dlg.ShowDialog(this) != true) return false;
-            path = dlg.FileName;
+            var res = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.SaveAs, null, "", path != null ? Path.GetFileNameWithoutExtension(path) : "Cartel1", DefaultFolder(), ".xlsx", XlsxFilter);
+            if (res.Choice != SaveLogic.Choice.Save || res.Path == null) return false;
+            path = res.Path;
         }
+        return SaveTo(path);
+    }
+
+    const string XlsxFilter = "Cartelle di lavoro (*.xlsx)|*.xlsx";
+
+    /// <summary>Cartella solo proposta (testo): nulla viene scritto finché l'utente non preme Salva.</summary>
+    string DefaultFolder() => Wb.FilePath != null && Path.GetDirectoryName(Wb.FilePath) is { } d && Directory.Exists(d) ? d : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+
+    bool SaveTo(string path)
+    {
         try
         {
             Cursor = Cursors.Wait;
@@ -158,7 +170,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or XlsxException)
         {
-            MessageBox.Show(this, "Salvataggio non riuscito, il file originale non è stato modificato:\n" + ex.Message, "PowerTables", MessageBoxButton.OK, MessageBoxImage.Error);
+            ThemedDialog.Notify(this, "Il file originale non è stato modificato." + Environment.NewLine + ex.Message, DialogIcon.Error, "Salvataggio non riuscito");
             return false;
         }
         finally { Cursor = null; }
@@ -218,7 +230,7 @@ public partial class MainWindow : Window
         var name = Ask("Rinomina foglio", "Nome:", s.Name);
         if (name == null) return;
         try { Wb.RenameSheet(s, name); RebuildSheetTabs(); }
-        catch (ArgumentException ex) { MessageBox.Show(this, ex.Message, "PowerTables"); }
+        catch (ArgumentException ex) { ThemedDialog.Notify(this, ex.Message, DialogIcon.Warning); }
     }
 
     string? Ask(string title, string prompt, string def)
@@ -246,7 +258,7 @@ public partial class MainWindow : Window
     void DoCopy(bool cut)
     {
         var (r1, c1, r2, c2) = G.Selection;
-        if ((long)(r2 - r1 + 1) * (c2 - c1 + 1) > 2_000_000) { MessageBox.Show(this, "Selezione troppo grande per gli appunti.", "PowerTables"); return; }
+        if ((long)(r2 - r1 + 1) * (c2 - c1 + 1) > 2_000_000) { ThemedDialog.Notify(this, "Selezione troppo grande per gli appunti.", DialogIcon.Warning); return; }
         _clip = Wb.Copy(Cur, r1, c1, r2, c2, cut);
         var sb = new StringBuilder();
         for (int r = r1; r <= r2; r++)
@@ -273,7 +285,7 @@ public partial class MainWindow : Window
             else return;
             G.SelectRange(G.ActiveRow, G.ActiveCol, end.Item1, end.Item2);
         }
-        catch (FormatException ex) { MessageBox.Show(this, ex.Message, "PowerTables"); }
+        catch (FormatException ex) { ThemedDialog.Notify(this, ex.Message, DialogIcon.Warning); }
     }
 
     void FillDirection(bool down)
@@ -484,15 +496,15 @@ public partial class MainWindow : Window
         var dlg = new OpenFileDialog { Filter = "CSV (*.csv;*.txt)|*.csv;*.txt|Tutti i file|*.*" };
         if (dlg.ShowDialog(this) != true) return;
         try { Csv.Import(Wb, Cur, File.ReadAllText(dlg.FileName)); }
-        catch (IOException ex) { MessageBox.Show(this, ex.Message, "PowerTables"); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { ThemedDialog.Notify(this, "Impossibile leggere il file CSV: " + ex.Message, DialogIcon.Error, "Importazione non riuscita"); }
     }
 
     void ExportCsv()
     {
-        var dlg = new SaveFileDialog { Filter = "CSV (*.csv)|*.csv", FileName = Cur.Name + ".csv" };
-        if (dlg.ShowDialog(this) != true) return;
-        try { Csv.Export(Wb, Cur, dlg.FileName); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { MessageBox.Show(this, ex.Message, "PowerTables"); }
+        var res = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.SaveAs, null, "", Cur.Name, DefaultFolder(), ".csv", "CSV (*.csv)|*.csv");
+        if (res.Choice != SaveLogic.Choice.Save || res.Path == null) return;
+        try { Csv.Export(Wb, Cur, res.Path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { ThemedDialog.Notify(this, ex.Message, DialogIcon.Error, "Esportazione non riuscita"); }
     }
 
     // ---------------- benchmark ----------------

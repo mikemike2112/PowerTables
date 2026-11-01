@@ -117,7 +117,7 @@ public sealed class GridHost : Grid
     void ApplyInput(int r, int c, string text)
     {
         try { Canvas.Wb.Do("Modifica cella", () => Canvas.Wb.SetInput(Canvas.Sheet, r, c, text, Canvas.Culture)); }
-        catch (FormatException ex) { MessageBox.Show(Window.GetWindow(this), ex.Message, "PowerTables", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch (FormatException ex) { ThemedDialog.Notify(Window.GetWindow(this), ex.Message, DialogIcon.Warning); }
     }
 
     public void Cancel()

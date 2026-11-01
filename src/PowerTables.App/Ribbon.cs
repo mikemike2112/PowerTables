@@ -56,7 +56,7 @@ public partial class MainWindow
         else
         {
             b.ToolTip = tip ?? label;
-            Action run = () => { try { act(); } catch (Exception ex) when (ex is FormatException or ArgumentException or InvalidOperationException) { MessageBox.Show(this, ex.Message, "PowerTables"); } G.Focus(); };
+            Action run = () => { try { act(); } catch (Exception ex) when (ex is FormatException or ArgumentException or InvalidOperationException) { ThemedDialog.Notify(this, ex.Message, DialogIcon.Warning); } G.Focus(); };
             b.Click += (_, _) => run();
             _commands.Add((label, _curBuildTab, run));
         }
@@ -139,7 +139,7 @@ public partial class MainWindow
         _curBuildTab = "Revisione"; _tabContent["Revisione"] = Tab("Revisione", Group("Strumenti di correzione", Large("Controllo ortografia", "page", null), Large("Statistiche cartella di lavoro", "calc", null)), Group("Commenti", Large("Nuovo commento", "comment", null)), Group("Proteggi", Large("Proteggi foglio", "page", null), Large("Proteggi cartella di lavoro", "page", null)));
         _curBuildTab = "Visualizza"; _tabContent["Visualizza"] = BuildView();
         _curBuildTab = "Automatizza"; _tabContent["Automatizza"] = Tab("Automatizza", Group("Automatizza", Large("Nuovo script", "func", null), Large("Visualizza script", "page", null)));
-        _curBuildTab = "Guida"; _tabContent["Guida"] = Tab("Guida", Group("Guida", Large("Informazioni su PowerTables", "page", () => MessageBox.Show(this, "PowerTables - foglio di calcolo open source (MIT).\nFormato nativo .xlsx.", "Informazioni"))));
+        _curBuildTab = "Guida"; _tabContent["Guida"] = Tab("Guida", Group("Guida", Large("Informazioni su PowerTables", "page", () => ThemedDialog.Notify(this, "PowerTables - foglio di calcolo open source (MIT).\nFormato nativo .xlsx.", DialogIcon.Info, "Informazioni"))));
         _curBuildTab = "Powers"; _tabContent["Powers"] = BuildPowers();
         ShowTab("Home");
     }
