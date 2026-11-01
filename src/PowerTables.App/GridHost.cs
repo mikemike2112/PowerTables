@@ -11,6 +11,9 @@ namespace PowerTables.App;
 public sealed class GridHost : Grid
 {
     public readonly GridCanvas Canvas = new();
+    readonly Grid _zoomGrid = new() { ClipToBounds = true };
+    public int ZoomPct { get; private set; } = 100;
+    public void SetZoom(int pct) { ZoomPct = Math.Clamp(pct, 10, 400); _zoomGrid.LayoutTransform = new ScaleTransform(ZoomPct / 100.0, ZoomPct / 100.0); }
     readonly ScrollBar _v = new() { Orientation = Orientation.Vertical }, _h = new() { Orientation = Orientation.Horizontal };
     readonly Canvas _overlay = new() { IsHitTestVisible = true };
     public readonly TextBox Editor = new() { Visibility = Visibility.Collapsed, BorderThickness = new Thickness(2), Padding = new Thickness(1, 0, 1, 0), AcceptsReturn = false, VerticalContentAlignment = VerticalAlignment.Bottom };
@@ -25,8 +28,9 @@ public sealed class GridHost : Grid
         RowDefinitions.Add(new RowDefinition()); RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         ColumnDefinitions.Add(new ColumnDefinition()); ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         SetRow(_v, 0); SetColumn(_v, 1); SetRow(_h, 1); SetColumn(_h, 0);
-        Children.Add(Canvas); Children.Add(_overlay); Children.Add(_v); Children.Add(_h);
-        SetRow(_overlay, 0); SetColumn(_overlay, 0);
+        _zoomGrid.Children.Add(Canvas); _zoomGrid.Children.Add(_overlay);
+        SetRow(_zoomGrid, 0); SetColumn(_zoomGrid, 0);
+        Children.Add(_zoomGrid); Children.Add(_v); Children.Add(_h);
         _overlay.Children.Add(Editor);
         _overlay.Background = null;
         _overlay.IsHitTestVisible = false;

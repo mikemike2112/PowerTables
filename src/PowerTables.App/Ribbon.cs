@@ -1,0 +1,271 @@
+using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Shell;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Media;
+using PowerTables.Core;
+
+namespace PowerTables.App;
+
+/// <summary>Costruzione del ribbon: struttura e posizioni come l'app di riferimento, icone e codice propri.</summary>
+public partial class MainWindow
+{
+    readonly List<(string Label, string Tab, Action? Run)> _commands = [];
+    string _curTab = "Home";
+    readonly Dictionary<string, FrameworkElement> _tabContent = [];
+    readonly Dictionary<string, ToggleButton> _tabButtons = [];
+
+    static readonly string[] TabNames = ["File", "Home", "Inserisci", "Disegno", "Layout di pagina", "Formule", "Dati", "Revisione", "Visualizza", "Automatizza", "Guida", "Powers"];
+
+    Brush R(string k) => (Brush)FindResource(k);
+
+    // ---------- elementi base ----------
+    FrameworkElement Large(string label, string icon, Action? act, bool drop = false, string? tip = null)
+    {
+        var sp = new StackPanel { Orientation = Orientation.Vertical, HorizontalAlignment = HorizontalAlignment.Center };
+        sp.Children.Add(Icons.Make(icon, 32));
+        var tb = new TextBlock { Text = label + (drop ? " ▾" : ""), TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 78, FontSize = 12, FontFamily = new FontFamily("Segoe UI"), Margin = new Thickness(0, 2, 0, 0) };
+        tb.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+        sp.Children.Add(tb);
+        return Wrap(label, sp, act, tip, new Thickness(6, 4, 6, 2));
+    }
+
+    FrameworkElement Small(string label, string? icon, Action? act, bool drop = false, string? tip = null, double minW = 0)
+    {
+        var sp = new StackPanel { Orientation = Orientation.Horizontal };
+        if (icon != null) sp.Children.Add(Icons.Make(icon, 16));
+        if (label.Length > 0)
+        {
+            var tb = new TextBlock { Text = label + (drop ? " ▾" : ""), FontSize = 12, FontFamily = new FontFamily("Segoe UI"), Margin = new Thickness(icon != null ? 6 : 0, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            tb.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+            sp.Children.Add(tb);
+        }
+        else if (drop) sp.Children.Add(new TextBlock { Text = "▾", FontSize = 9, Margin = new Thickness(2, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Foreground = R("TextDimBrush") });
+        var el = Wrap(label.Length > 0 ? label : (tip ?? icon ?? ""), sp, act, tip, new Thickness(5, 2, 5, 2));
+        if (minW > 0 && el is Button b) { b.MinWidth = minW; b.HorizontalContentAlignment = HorizontalAlignment.Left; }
+        return el;
+    }
+
+    FrameworkElement Wrap(string label, UIElement content, Action? act, string? tip, Thickness pad)
+    {
+        var b = new Button { Content = content, Padding = pad, Margin = new Thickness(1), VerticalContentAlignment = VerticalAlignment.Center };
+        b.SetValue(AutomationProperties.NameProperty, label);
+        if (act == null) { b.IsEnabled = false; b.ToolTip = "Non ancora disponibile"; _commands.Add((label, _curBuildTab, null)); }
+        else
+        {
+            b.ToolTip = tip ?? label;
+            Action run = () => { try { act(); } catch (Exception ex) when (ex is FormatException or ArgumentException or InvalidOperationException) { MessageBox.Show(this, ex.Message, "PowerTables"); } G.Focus(); };
+            b.Click += (_, _) => run();
+            _commands.Add((label, _curBuildTab, run));
+        }
+        return b;
+    }
+    string _curBuildTab = "";
+
+    FrameworkElement Check(string label, bool isChecked, Action<bool>? set)
+    {
+        var cb = new CheckBox { Content = label, IsChecked = isChecked, Margin = new Thickness(6, 2, 6, 2), FontSize = 12, FontFamily = new FontFamily("Segoe UI"), VerticalContentAlignment = VerticalAlignment.Center };
+        cb.SetResourceReference(Control.ForegroundProperty, "TextBrush");
+        cb.SetValue(AutomationProperties.NameProperty, label);
+        if (set == null) { cb.IsEnabled = false; cb.ToolTip = "Non ancora disponibile"; _commands.Add((label, _curBuildTab, null)); }
+        else
+        {
+            cb.Click += (_, _) => { set(cb.IsChecked == true); G.Focus(); };
+            _commands.Add((label, _curBuildTab, () => { cb.IsChecked = cb.IsChecked != true; set(cb.IsChecked == true); }));
+        }
+        return cb;
+    }
+
+    FrameworkElement Combo(string text, double w, Action<Button>? open, string tip, out TextBlock label)
+    {
+        var tb = new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center, FontSize = 12, FontFamily = new FontFamily("Segoe UI"), TextTrimming = TextTrimming.CharacterEllipsis };
+        tb.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+        var arrow = new TextBlock { Text = "▾", FontSize = 9, VerticalAlignment = VerticalAlignment.Center, Foreground = R("TextDimBrush") };
+        DockPanel.SetDock(arrow, Dock.Right);
+        var dp = new DockPanel { Width = w - 14, LastChildFill = true, Children = { arrow, tb } };
+        var b = new Button { Content = dp, ToolTip = tip, Padding = new Thickness(6, 2, 6, 2), Margin = new Thickness(2, 1, 2, 1), HorizontalContentAlignment = HorizontalAlignment.Stretch, BorderBrush = R("BorderBrush2"), Width = w };
+        b.SetValue(AutomationProperties.NameProperty, tip);
+        if (open == null) { b.IsEnabled = false; b.ToolTip = "Non ancora disponibile"; }
+        else b.Click += (_, _) => open(b);
+        label = tb;
+        _commands.Add((tip, _curBuildTab, open == null ? null : () => open(b)));
+        return b;
+    }
+
+    static UIElement Col(params UIElement[] rows) => new StackPanel { Orientation = Orientation.Vertical, VerticalAlignment = VerticalAlignment.Top, Children = { } }.AddAll(rows);
+    static UIElement RowOf(params UIElement[] items) => new StackPanel { Orientation = Orientation.Horizontal }.AddAll(items);
+
+    UIElement Group(string name, params UIElement[] cols)
+    {
+        var content = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(2, 4, 2, 0) }.AddAll(cols);
+        var lab = new TextBlock { Text = name, FontSize = 11, FontFamily = new FontFamily("Segoe UI"), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 2, 0, 3) };
+        lab.SetResourceReference(TextBlock.ForegroundProperty, "TextDimBrush");
+        var dock = new DockPanel();
+        DockPanel.SetDock(lab, Dock.Bottom);
+        dock.Children.Add(lab); dock.Children.Add(content);
+        var b = new Border { BorderThickness = new Thickness(0, 0, 1, 0), Padding = new Thickness(4, 0, 4, 0), Child = dock };
+        b.SetResourceReference(Border.BorderBrushProperty, "BorderBrush2");
+        return b;
+    }
+
+    FrameworkElement Tab(string name, params UIElement[] groups)
+    {
+        var sp = new StackPanel { Orientation = Orientation.Horizontal }.AddAll(groups);
+        var sv = new ScrollViewer { Content = sp, HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        sv.PreviewMouseWheel += (_, e) => { sv.ScrollToHorizontalOffset(sv.HorizontalOffset - e.Delta); e.Handled = true; };
+        return sv;
+    }
+
+    // ---------- schede ----------
+    void BuildTabs()
+    {
+        foreach (var n in TabNames)
+        {
+            var name = n;
+            var tb = new ToggleButton { Content = name, Style = (Style)FindResource(name == "Powers" ? "PowersTabBtn" : "TabBtn"), IsChecked = name == "Home" };
+            tb.SetValue(AutomationProperties.NameProperty, "Scheda " + name);
+            tb.SetValue(AutomationProperties.AutomationIdProperty, "Tab_" + name.Replace(' ', '_'));
+            tb.Click += (_, _) => { if (name == "File") { ShowBackstage(true); tb.IsChecked = false; } else ShowTab(name); };
+            TabStrip.Children.Add(tb); _tabButtons[name] = tb;
+        }
+        _curBuildTab = "Home"; _tabContent["Home"] = BuildHome();
+        _curBuildTab = "Inserisci"; _tabContent["Inserisci"] = BuildInsert();
+        _curBuildTab = "Disegno"; _tabContent["Disegno"] = Tab("Disegno", Group("Penne", Large("Penna", "fill", null), Large("Evidenziatore", "fill", null), Large("Gomma", "clear", null)));
+        _curBuildTab = "Layout di pagina"; _tabContent["Layout di pagina"] = BuildLayout();
+        _curBuildTab = "Formule"; _tabContent["Formule"] = BuildFormulas();
+        _curBuildTab = "Dati"; _tabContent["Dati"] = BuildData();
+        _curBuildTab = "Revisione"; _tabContent["Revisione"] = Tab("Revisione", Group("Strumenti di correzione", Large("Controllo ortografia", "page", null), Large("Statistiche cartella di lavoro", "calc", null)), Group("Commenti", Large("Nuovo commento", "comment", null)), Group("Proteggi", Large("Proteggi foglio", "page", null), Large("Proteggi cartella di lavoro", "page", null)));
+        _curBuildTab = "Visualizza"; _tabContent["Visualizza"] = BuildView();
+        _curBuildTab = "Automatizza"; _tabContent["Automatizza"] = Tab("Automatizza", Group("Automatizza", Large("Nuovo script", "func", null), Large("Visualizza script", "page", null)));
+        _curBuildTab = "Guida"; _tabContent["Guida"] = Tab("Guida", Group("Guida", Large("Informazioni su PowerTables", "page", () => MessageBox.Show(this, "PowerTables - foglio di calcolo open source (MIT).\nFormato nativo .xlsx.", "Informazioni"))));
+        _curBuildTab = "Powers"; _tabContent["Powers"] = BuildPowers();
+        ShowTab("Home");
+    }
+
+    void ShowTab(string name)
+    {
+        _curTab = name;
+        RibbonHost.Content = _tabContent[name];
+        foreach (var kv in _tabButtons) kv.Value.IsChecked = kv.Key == name;
+        // bordo del ribbon: #FF2400 con la scheda Powers
+        RibbonOuter.BorderBrush = name == "Powers" ? R("PowersBrush") : R("BorderBrush2");
+        RibbonOuter.BorderThickness = name == "Powers" ? new Thickness(2) : new Thickness(1);
+    }
+
+    // ---------- Home ----------
+    FrameworkElement BuildHome()
+    {
+        var fontLabel = default(TextBlock); var sizeLabel = default(TextBlock);
+        var paste = Large("Incolla", "paste", DoPaste, true, "Incolla (Ctrl+V)");
+        var clip = Group("Appunti", paste, Col(Small("Taglia", "cut", () => DoCopy(true), tip: "Taglia (Ctrl+X)"), Small("Copia", "copy", () => DoCopy(false), tip: "Copia (Ctrl+C)"), Small("Copia formato", "fill", null)));
+        _fontBox = Combo("Calibri", 130, b => DropMenu(b, new[] { "Calibri", "Arial", "Segoe UI", "Times New Roman", "Courier New", "Verdana", "Georgia", "Consolas" }.Select(n => (n, (Action)(() => Fmt(x => x with { Font = x.Font with { Name = n } })))).ToArray()), "Tipo di carattere", out fontLabel);
+        _fontLabel = fontLabel;
+        _sizeBox = Combo("11", 52, b => DropMenu(b, new[] { 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72 }.Select(n => (n.ToString(), (Action)(() => Fmt(x => x with { Font = x.Font with { Size = n } })))).ToArray()), "Dimensione carattere", out sizeLabel);
+        _sizeLabel = sizeLabel;
+        _bold = ToggleIcon("G", "Grassetto (Ctrl+B)", FontWeights.Bold, null, false, () => Toggle(x => x.Font.Bold, (x, v) => x with { Font = x.Font with { Bold = v } }));
+        _italic = ToggleIcon("C", "Corsivo (Ctrl+I)", FontWeights.Normal, FontStyles.Italic, false, () => Toggle(x => x.Font.Italic, (x, v) => x with { Font = x.Font with { Italic = v } }));
+        _underline = ToggleIcon("S", "Sottolineato (Ctrl+U)", FontWeights.Normal, null, true, () => Toggle(x => x.Font.Underline, (x, v) => x with { Font = x.Font with { Underline = v } }));
+        Button? bordB = null, fillB = null, colB = null;
+        bordB = (Button)Small("", "border", () => DropMenu(bordB!, ("Tutti i bordi", () => SetBorders("all")), ("Bordo esterno", () => SetBorders("outer")), ("Bordo inferiore", () => SetBorders("bottom")), ("Nessun bordo", () => SetBorders("none"))), true, "Bordi");
+        fillB = (Button)Small("", "fill", () => Palette(fillB!, c => Fmt(x => x with { FillColor = c })), true, "Colore di riempimento");
+        colB = (Button)Small("A", null, () => Palette(colB!, c => Fmt(x => x with { Font = x.Font with { Color = c } })), true, "Colore carattere");
+        var font = Group("Carattere", Col(
+            RowOf(_fontBox, _sizeBox, Small("A+", null, () => Fmt(x => x with { Font = x.Font with { Size = Math.Min(409, x.Font.Size + 1) } }), tip: "Aumenta dimensione carattere"), Small("A−", null, () => Fmt(x => x with { Font = x.Font with { Size = Math.Max(1, x.Font.Size - 1) } }), tip: "Riduci dimensione carattere")),
+            RowOf(_bold, _italic, _underline, bordB, fillB, colB)));
+        var align = Group("Allineamento", Col(
+            RowOf(Small("", "top", () => Fmt(x => x with { VAlign = "top" }), tip: "Allinea in alto"), Small("", "middle", () => Fmt(x => x with { VAlign = "center" }), tip: "Allinea al centro"), Small("", "bottom", () => Fmt(x => x with { VAlign = "bottom" }), tip: "Allinea in basso"), Small("", "wrap", () => Fmt(x => x with { Wrap = !x.Wrap }), tip: "Testo a capo")),
+            RowOf(Small("", "left", () => Fmt(x => x with { HAlign = "left" }), tip: "Allinea a sinistra"), Small("", "center", () => Fmt(x => x with { HAlign = "center" }), tip: "Centra"), Small("", "right", () => Fmt(x => x with { HAlign = "right" }), tip: "Allinea a destra"),
+                Small("", "outdent", () => Fmt(x => x with { Indent = Math.Max(0, x.Indent - 1) }), tip: "Riduci rientro"), Small("", "indent", () => Fmt(x => x with { Indent = Math.Min(15, x.Indent + 1) }), tip: "Aumenta rientro"))),
+            Col(Small("Unisci e centra", "merge", () => { var (r1, c1, r2, c2) = G.Selection; Wb.Merge(Cur, r1, c1, r2, c2); Fmt(x => x with { HAlign = "center" }); }, tip: "Unisci e allinea al centro"), Small("Dividi celle", "unmerge", () => { var (r1, c1, r2, c2) = G.Selection; Wb.Unmerge(Cur, r1, c1, r2, c2); })));
+        Button? nfB = null;
+        nfB = (Button)Combo("Generale", 150, b => DropMenu(b,
+            ("Generale", () => NumFormat(0)), ("Numero", () => NumFormat(2)), ("Migliaia", () => NumFormat(4)), ("Valuta", () => NumFormat(0, "#,##0.00\\ \"€\"")), ("Percentuale", () => NumFormat(10)),
+            ("Data breve", () => NumFormat(14)), ("Data estesa", () => NumFormat(0, "dddd d mmmm yyyy")), ("Ora", () => NumFormat(21)), ("Scientifico", () => NumFormat(11)), ("Testo", () => NumFormat(49))), "Formato numero", out _nfLabel);
+        var numbers = Group("Numeri", Col(nfB, RowOf(Small("€", null, () => NumFormat(0, "#,##0.00\\ \"€\""), tip: "Formato valuta"), Small("%", null, () => NumFormat(9), tip: "Stile percentuale"), Small("000", null, () => NumFormat(4), tip: "Stile separatore"), Small(".00+", null, () => Decimals(1), tip: "Aumenta decimali"), Small(".0−", null, () => Decimals(-1), tip: "Diminuisci decimali"))));
+        var styles = Group("Stili", Large("Formattazione condizionale", "table", null, true), Large("Formatta come tabella", "table", null, true), Large("Stili cella", "table", null, true));
+        var cells = Group("Celle", Col(Small("Inserisci", "rowplus", null, true), Small("Elimina", "delete", null, true), Small("Formato", "table", null, true)));
+        Button? sortB = null;
+        sortB = (Button)Large("Ordina e filtra", "sort", () => DropMenu(sortB!, ("Ordina dalla A alla Z", () => DoSort(true)), ("Ordina dalla Z alla A", () => DoSort(false)), ("Filtro", ToggleFilter)), true);
+        var edit = Group("Modifica", Col(Small("Somma automatica", "sigma", AutoSum, tip: "Somma automatica"), Small("Riempi giù", "fill", () => FillDirection(true), tip: "Riempi in basso (Ctrl+D)"), Small("Cancella", "clear", () => G.ClearSelection(), tip: "Cancella contenuto (Canc)")), sortB, Large("Trova e seleziona", "find", null, true));
+        return Tab("Home", clip, font, align, numbers, styles, cells, edit);
+    }
+
+    TextBlock? _fontLabel, _sizeLabel, _nfLabel; FrameworkElement? _fontBox, _sizeBox;
+
+    ToggleButton ToggleIcon(string text, string tip, FontWeight w, FontStyle? st, bool ul, Action act)
+    {
+        var t = new ToggleButton { Content = new TextBlock { Text = text, FontWeight = w, FontStyle = st ?? FontStyles.Normal, TextDecorations = ul ? TextDecorations.Underline : null, FontSize = 14, FontFamily = new FontFamily("Segoe UI") }, ToolTip = tip, MinWidth = 26 };
+        ((TextBlock)t.Content).SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+        t.SetValue(AutomationProperties.NameProperty, tip);
+        t.Click += (_, _) => { act(); G.Focus(); };
+        _commands.Add((tip, _curBuildTab, () => { act(); G.Focus(); }));
+        return t;
+    }
+
+    // ---------- Inserisci / Layout / Formule / Dati / Visualizza ----------
+    FrameworkElement BuildInsert() => Tab("Inserisci",
+        Group("Tabelle", Large("Tabella pivot", "table", null), Large("Tabella", "table", null)),
+        Group("Illustrazioni", Large("Immagini", "image", null), Large("Forme", "page", null)),
+        Group("Grafici", Large("Grafici consigliati", "chart", null), Large("Istogramma", "chart", null), Large("Linee", "chart", null)),
+        Group("Collegamenti", Large("Collegamento", "page", null)),
+        Group("Commenti", Large("Commento", "comment", null)),
+        Group("Testo", Large("Casella di testo", "page", null)));
+
+    FrameworkElement BuildLayout() => Tab("Layout di pagina",
+        Group("Temi", Large("Temi", "theme", null, true)),
+        Group("Imposta pagina", Large("Margini", "page", null, true), Large("Orientamento", "page", null, true), Large("Dimensioni", "page", null, true), Large("Area di stampa", "print", null, true)),
+        Group("Opzioni del foglio", Col(Check("Griglia: visualizza", Cur?.ShowGridLines ?? true, v => { Cur!.ShowGridLines = v; Cur.LayoutDirty = true; G.InvalidateVisual(); }), Check("Griglia: stampa", false, null))));
+
+    FrameworkElement BuildFormulas() => Tab("Formule",
+        Group("Libreria di funzioni", Large("Inserisci funzione", "func", null), Large("Somma automatica", "sigma", AutoSum, true), Large("Finanziarie", "func", null, true), Large("Logiche", "func", null, true), Large("Testo", "func", null, true), Large("Data e ora", "func", null, true)),
+        Group("Nomi definiti", Large("Gestione nomi", "names", null), Col(Small("Definisci nome", "names", null))),
+        Group("Verifica formule", Col(Small("Mostra formule", "func", () => { Wb.ShowFormulas = !Wb.ShowFormulas; G.InvalidateVisual(); }), Small("Controllo errori", "func", null))),
+        Group("Calcolo", Large("Opzioni di calcolo", "calc", null, true), Large("Calcola adesso", "calc", RecalcNow)));
+
+    FrameworkElement BuildData() => Tab("Dati",
+        Group("Recupera e trasforma dati", Large("Da testo/CSV", "csv", ImportCsv), Large("Da Web", "page", null)),
+        Group("Ordina e filtra", Col(Small("Ordina dalla A alla Z", "sortaz", () => DoSort(true)), Small("Ordina dalla Z alla A", "sortza", () => DoSort(false))), Large("Filtro", "filter", ToggleFilter), Col(Small("Cancella", "clear", () => { if (Cur.Filter != null) Wb.ClearAutoFilter(Cur); }), Small("Riapplica", "filter", () => { Wb.ReapplyFilter(Cur, Ci); G.RelayoutAll(); }), Small("Avanzate", "filter", null))),
+        Group("Strumenti dati", Large("Testo in colonne", "table", null), Large("Rimuovi duplicati", "table", null), Large("Convalida dati", "table", null)),
+        Group("Previsione", Large("Analisi di simulazione", "chart", null, true), Large("Foglio previsione", "chart", null)));
+
+    FrameworkElement BuildView()
+    {
+        Button? frz = null;
+        frz = (Button)Small("Blocca riquadri", "freeze", () => DropMenu(frz!, ("Blocca riga superiore", () => Wb.SetFreeze(Cur, 1, Cur.FrozenCols)), ("Blocca prima colonna", () => Wb.SetFreeze(Cur, Cur.FrozenRows, 1)), ("Blocca riquadri fino alla selezione", () => Wb.SetFreeze(Cur, G.ActiveRow - 1, G.ActiveCol - 1)), ("Sblocca riquadri", () => Wb.SetFreeze(Cur, 0, 0))), true);
+        return Tab("Visualizza",
+            Group("Visualizzazioni cartella di lavoro", Large("Normale", "gridview", () => { }), Large("Anteprima interruzioni di pagina", "page", null), Small("Layout di pagina", "page", null)),
+            Group("Mostra", Col(Check("Griglia", true, v => { Cur.ShowGridLines = v; Cur.LayoutDirty = true; G.InvalidateVisual(); }), Check("Barra della formula", true, v => FormulaRow.Visibility = v ? Visibility.Visible : Visibility.Collapsed), Check("Intestazioni", true, null))),
+            Group("Zoom", Large("Zoom", "zoom", () => AskZoom()), Large("100%", "zoom", () => SetZoom(100))),
+            Group("Finestra", Col(Small("Nuova finestra", "window", null), frz)));
+    }
+
+    FrameworkElement BuildPowers()
+    {
+        var sw = new ToggleButton { Style = (Style)FindResource("SwitchToggle"), IsChecked = Theme.Dark, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 4, 8, 4), ToolTip = "Modalità scura" };
+        sw.SetValue(AutomationProperties.NameProperty, "Modalità scura");
+        sw.SetValue(AutomationProperties.AutomationIdProperty, "DarkModeToggle");
+        sw.Click += (_, _) => SetDark(sw.IsChecked == true);
+        _darkToggle = sw;
+        var lab = new TextBlock { Text = "Modalità scura", FontSize = 12, FontFamily = new FontFamily("Segoe UI"), VerticalAlignment = VerticalAlignment.Center };
+        lab.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+        _commands.Add(("Modalità scura", "Powers", () => { sw.IsChecked = !sw.IsChecked; SetDark(sw.IsChecked == true); }));
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(6, 20, 6, 0) };
+        row.Children.Add(Icons.Make("moon", 22)); row.Children.Add(new Border { Width = 8 }); row.Children.Add(lab); row.Children.Add(sw);
+        return Tab("Powers", Group("Aspetto", row));
+    }
+    ToggleButton? _darkToggle;
+
+    void SetDark(bool dark)
+    {
+        Theme.Dark = dark; Theme.Apply(Application.Current.Resources); Theme.Save();
+        if (_darkToggle != null) _darkToggle.IsChecked = dark;
+        UpdateProbe();
+    }
+}
+
+static class PanelExt
+{
+    public static T AddAll<T>(this T p, IEnumerable<UIElement> items) where T : Panel { foreach (var i in items) p.Children.Add(i); return p; }
+}

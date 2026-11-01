@@ -13,6 +13,7 @@ public partial class App : Application
             ex.Handled = true;
         };
         var args = e.Args;
+        Theme.Load();
         if (args.Contains("--light")) Theme.Dark = false;
         Theme.Apply(Resources);
         var w = new MainWindow();
