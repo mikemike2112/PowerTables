@@ -35,6 +35,7 @@ public partial class MainWindow : Window
         BuildChrome();
         BuildTabs();
         InitTools();
+        InitSheetUi();
         SetWorkbook(XlsxWriter.CreateNew());
         G.SelectionChanged += OnSelection;
         G.CopyRequested += () => DoCopy(false); G.CutRequested += () => DoCopy(true); G.PasteRequested += DoPaste;

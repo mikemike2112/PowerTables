@@ -197,9 +197,12 @@ public sealed class GridCanvas : FrameworkElement
             {
                 double cw = M.ColW(c); if (cw <= 0) continue;
                 if (skip.Contains(Addr.Key(r, c))) continue;
-                if (!sh.CellMap.TryGetValue(Addr.Key(r, c), out var cell) || cell.Style == 0) continue;
+                if (!sh.CellMap.TryGetValue(Addr.Key(r, c), out var cell)) continue;
+                var cf = sh.CondFmt.Count > 0 ? wb.CondFormatAt(sh, r, c, Culture) : null;
+                if (cell.Style == 0 && cf?.Fill == null) continue;
                 var xf = wb.Styles.Get(cell.Style);
-                if (xf.FillColor != null) dc.DrawRectangle(Theme.Brush(Argb(xf.FillColor)), null, new Rect(XOf(c), y, cw, rh));
+                string? fillc = cf?.Fill ?? xf.FillColor;
+                if (fillc != null) dc.DrawRectangle(Theme.Brush(Argb(fillc)), null, new Rect(XOf(c), y, cw, rh));
             }
         }
         foreach (var m in mergeHere)
@@ -312,6 +315,9 @@ public sealed class GridCanvas : FrameworkElement
         if (cell.Kind == CellKind.Empty) return;
         string text = Wb.DisplayText(Sheet, r, c, Culture);
         if (text.Length == 0) return;
+        // formattazione condizionale: sovrappone colori e grassetto allo stile della cella
+        if (Sheet.CondFmt.Count > 0 && Wb.CondFormatAt(Sheet, r, c, Culture) is { } look)
+            xf = xf with { FillColor = look.Fill ?? xf.FillColor, Font = xf.Font with { Color = look.Font ?? xf.Font.Color, Bold = xf.Font.Bold || look.Bold } };
         // colore
         Color bg = xf.FillColor != null ? Argb(xf.FillColor) : Theme.CellBg;
         Color col;
@@ -396,6 +402,14 @@ public sealed class GridCanvas : FrameworkElement
                 if (am != null) ar = RangeRect(am.Value.R1, am.Value.C1, am.Value.R2, am.Value.C2, q);
                 if (ar.HasValue) dc.DrawRectangle(Theme.Brush(Theme.CellBg), null, new Rect(ar.Value.X + 1, ar.Value.Y + 1, Math.Max(0, ar.Value.Width - 2), Math.Max(0, ar.Value.Height - 2)));
                 if (ar.HasValue) RedrawActive(dc, ActiveRow, ActiveCol, ar.Value, q);
+            }
+            // freccia dell'elenco di convalida sulla cella attiva
+            if (single && ValidationArrowRect(rc) is { } ar0 && Wb.GetValidation(Sheet, ActiveRow, ActiveCol) is { Type: "list", Dropdown: true })
+            {
+                dc.DrawRectangle(Theme.Brush(Theme.Panel), new Pen(Theme.Brush(Theme.Border), 1), ar0);
+                var tri = new StreamGeometry();
+                using (var g = tri.Open()) { g.BeginFigure(new Point(ar0.X + 4, ar0.Y + ar0.Height / 2 - 2), true, true); g.LineTo(new Point(ar0.Right - 4, ar0.Y + ar0.Height / 2 - 2), false, false); g.LineTo(new Point(ar0.X + ar0.Width / 2, ar0.Y + ar0.Height / 2 + 3), false, false); }
+                dc.DrawGeometry(Theme.Brush(Theme.Text), null, tri);
             }
             // maniglia di riempimento
             if (r2 >= q.R0 && r2 <= q.R1 && c2 >= q.C0 && c2 <= q.C1)
@@ -570,6 +584,14 @@ public sealed class GridCanvas : FrameworkElement
         });
     }
 
+    /// <summary>Quadratino della freccia dell'elenco di convalida, a destra della cella attiva (<paramref name="cell"/> = rettangolo della selezione).</summary>
+    static Rect? ValidationArrowRect(Rect cell) => cell.Height >= 14 && cell.Width >= 30 ? new Rect(cell.Right - 17, cell.Y + 2, 15, Math.Min(cell.Height - 4, 18)) : null;
+
+    /// <summary>Clic sulla freccia dell'elenco di convalida (riga, colonna, posizione sullo schermo).</summary>
+    public event Action<int, int, Point>? ValidationListRequested;
+    /// <summary>Ctrl+clic su una cella: apre il collegamento, se c'è.</summary>
+    public event Action<int, int>? LinkClicked;
+
     enum Drag { None, Point, Select, ColHeader, RowHeader, ResizeCol, ResizeRow, Fill }
     Drag _drag; int _resizeIdx; double _resizeStart, _resizeOrig; int _fillR1, _fillC1, _fillR2, _fillC2;
 
@@ -595,6 +617,13 @@ public sealed class GridCanvas : FrameworkElement
         Focus();
         bool shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
         if (e.ChangedButton != MouseButton.Left) { if (e.ChangedButton == MouseButton.Right) { var (r, c) = (RowAtY(p.Y), ColAtX(p.X)); var s = Selection; if (p.X > HeaderW && p.Y > HeaderH && !(r >= s.R1 && r <= s.R2 && c >= s.C1 && c <= s.C2)) Select(r, c); } return; }
+        // freccia dell'elenco di convalida
+        if (p.X > HeaderW && p.Y > HeaderH && (Selection.R1 == Selection.R2 && Selection.C1 == Selection.C2) && ValidationArrowRect(CellRect(ActiveRow, ActiveCol)) is { } va && va.Contains(p)
+            && Wb.GetValidation(Sheet, ActiveRow, ActiveCol) is { Type: "list", Dropdown: true })
+        { ValidationListRequested?.Invoke(ActiveRow, ActiveCol, PointToScreen(new Point(va.X, va.Bottom))); e.Handled = true; return; }
+        // Ctrl+clic su un collegamento
+        if (p.X > HeaderW && p.Y > HeaderH && (Keyboard.Modifiers & ModifierKeys.Control) != 0 && Wb.GetHyperlink(Sheet, RowAtY(p.Y), ColAtX(p.X)) != null)
+        { LinkClicked?.Invoke(RowAtY(p.Y), ColAtX(p.X)); e.Handled = true; return; }
         // maniglia di riempimento
         if (p.X > HeaderW && p.Y > HeaderH && FillHandleRect() is { } fh && fh.Contains(p))
         {
