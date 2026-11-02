@@ -352,7 +352,7 @@ public partial class MainWindow
                 cells[Addr.A1(r, c)] = new { text = Wb.DisplayText(Cur, r, c, Ci), f = kv.Value.F != null ? "=" + Core.Formulas.FormulaText.ToDisplay(kv.Value.F.Text) : null, kind = kv.Value.Kind.ToString() };
             }
             var hidden = Cur.Rows.Where(kv => kv.Value.Hidden).Select(kv => kv.Key).Order().ToList();
-            File.WriteAllText(path, JsonSerializer.Serialize(new { sheet = Cur.Name, cells, merges = Cur.Merges.Select(m => Addr.A1(m.R1, m.C1) + ":" + Addr.A1(m.R2, m.C2)), frozen = new[] { Cur.FrozenRows, Cur.FrozenCols }, hiddenRows = hidden, dark = Theme.Dark, modified = Wb.Modified }));
+            File.WriteAllText(path, JsonSerializer.Serialize(new { sheet = Cur.Name, cells, merges = Cur.Merges.Select(m => Addr.A1(m.R1, m.C1) + ":" + Addr.A1(m.R2, m.C2)), frozen = new[] { Cur.FrozenRows, Cur.FrozenCols }, hiddenRows = hidden, objects = Cur.Objects.Select(o => o.Kind.ToString()), comments = Cur.Comments.Select(k => Addr.A1(Addr.Row(k.Key), Addr.Col(k.Key)) + "=" + k.Value.Text), dark = Theme.Dark, modified = Wb.Modified }));
         }
         catch (IOException) { }
     }
