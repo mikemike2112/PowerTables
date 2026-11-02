@@ -31,7 +31,7 @@ public class ResponsiveUiTests
             ui.ResizeTo(w, 700);
             Assert.NotNull(ui.Find("Incolla", 3000));                                // il comando principale resta raggiungibile
             if (w <= 800) Assert.NotNull(ui.Find("RibbonOverflow", 3000));          // gruppi in più → menu a discesa
-            if (w <= 800) Assert.NotNull(ui.Find("TabOverflow", 3000));             // schede in più → menu a discesa
+            if (w <= 640) Assert.NotNull(ui.Find("TabOverflow", 3000));             // schede in più → menu a discesa (a 800 ci stanno tutte)
             ui.Screenshot(Docs($"resp-{w}.png"));
         }
         ui.KillOwn();

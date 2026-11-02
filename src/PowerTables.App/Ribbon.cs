@@ -18,7 +18,7 @@ public partial class MainWindow
     readonly Dictionary<string, FrameworkElement> _tabContent = [];
     readonly Dictionary<string, ToggleButton> _tabButtons = [];
 
-    static readonly string[] TabNames = ["File", "Home", "Inserisci", "Layout di pagina", "Formule", "Dati", "Visualizza", "Automatizza", "Guida", "Powers"];
+    static readonly string[] TabNames = ["File", "Home", "Inserisci", "Layout di pagina", "Formule", "Dati", "Visualizza", "Guida", "Powers"];
 
     Brush R(string k) => (Brush)FindResource(k);
 
@@ -145,7 +145,6 @@ public partial class MainWindow
         _curBuildTab = "Formule"; _tabContent["Formule"] = BuildFormulas();
         _curBuildTab = "Dati"; _tabContent["Dati"] = BuildData();
         _curBuildTab = "Visualizza"; _tabContent["Visualizza"] = BuildView();
-        _curBuildTab = "Automatizza"; _tabContent["Automatizza"] = Tab("Automatizza", Group("Automatizza", Large("Nuovo script", "func", null), Large("Visualizza script", "page", null)));
         _curBuildTab = "Guida"; _tabContent["Guida"] = Tab("Guida", Group("Guida", Large("Informazioni su PowerTables", "page", () => ThemedDialog.Notify(this, "PowerTables - foglio di calcolo open source (MIT).\nFormato nativo .xlsx.", DialogIcon.Info, "Informazioni"))));
         _curBuildTab = "Powers"; _tabContent["Powers"] = BuildPowers();
         ShowTab("Home");
