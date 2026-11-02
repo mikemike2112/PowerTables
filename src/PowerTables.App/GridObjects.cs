@@ -30,6 +30,7 @@ public sealed partial class GridCanvas
             dc.PushClip(new RectangleGeometry(new Rect(HeaderW, HeaderH, W - HeaderW, H - HeaderH)));
             dc.DrawGeometry(Brushes.Red, null, g); dc.Pop();
         }
+        if (ViewMode > 0) DrawPageBreaks(dc, W, H);
         foreach (var o in sh.Objects)
         {
             var rc = ObjRect(o);
@@ -152,5 +153,38 @@ public sealed partial class GridCanvas
             var t = new FormattedText(sp.Series[si].Name, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Calibri"), 10, Brushes.Black, ppd);
             dc.DrawRectangle(new SolidColorBrush(SerColors[si % SerColors.Length]), null, new Rect(lx, rc.Bottom - 15, 8, 8)); dc.DrawText(t, new Point(lx + 11, rc.Bottom - 17)); lx += t.Width + 24;
         }
+    }
+
+    /// <summary>Layout di pagina / Anteprima interruzioni: linee tratteggiate fra le pagine, numero di pagina e (solo anteprima) area fuori stampa in grigio.</summary>
+    void DrawPageBreaks(DrawingContext dc, double W, double H)
+    {
+        List<(int From, int To)> rows, cols; (int R1, int C1, int R2, int C2) rg;
+        try { (rows, cols, rg) = PowerTables.Core.IO.PdfExport.Pages(Wb, Sheet); } catch (ArgumentException) { return; }
+        if (rg.R2 - rg.R1 > 20000 || rows.Count * cols.Count > 400) return;
+        double ppd = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        var area = new Rect(HeaderW, HeaderH, Math.Max(0, W - HeaderW), Math.Max(0, H - HeaderH));
+        dc.PushClip(new RectangleGeometry(area));
+        double x1 = XOf(rg.C1), y1 = YOf(rg.R1), x2 = XOf(rg.C2) + M.ColW(rg.C2), y2 = YOf(rg.R2) + M.RowH(rg.R2);
+        if (ViewMode == 2)
+        {
+            var shade = new SolidColorBrush(Color.FromArgb(70, 0, 0, 0));
+            dc.DrawRectangle(shade, null, new Rect(area.X, area.Y, area.Width, Math.Max(0, y1 - area.Y)));
+            dc.DrawRectangle(shade, null, new Rect(area.X, y2, area.Width, Math.Max(0, area.Bottom - y2)));
+            dc.DrawRectangle(shade, null, new Rect(area.X, y1, Math.Max(0, x1 - area.X), Math.Max(0, y2 - y1)));
+            dc.DrawRectangle(shade, null, new Rect(x2, y1, Math.Max(0, area.Right - x2), Math.Max(0, y2 - y1)));
+        }
+        var pen = new Pen(new SolidColorBrush(Color.FromRgb(0x2F, 0x75, 0xB5)), 1.5) { DashStyle = DashStyles.Dash };
+        dc.DrawRectangle(null, pen, new Rect(x1, y1, x2 - x1, y2 - y1));
+        foreach (var rp in rows.Skip(1)) { double y = YOf(rp.From); dc.DrawLine(pen, new Point(x1, y), new Point(x2, y)); }
+        foreach (var cp in cols.Skip(1)) { double x = XOf(cp.From); dc.DrawLine(pen, new Point(x, y1), new Point(x, y2)); }
+        int n = 0;
+        foreach (var rp in rows) foreach (var cp in cols)
+        {
+            n++;
+            double px = XOf(cp.From), py = YOf(rp.From), pw = XOf(cp.To) + M.ColW(cp.To) - px, ph = YOf(rp.To) + M.RowH(rp.To) - py;
+            var ft = new FormattedText("Pagina " + n, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Segoe UI"), 28, new SolidColorBrush(Color.FromArgb(90, 0x80, 0x80, 0x80)), ppd);
+            dc.DrawText(ft, new Point(px + (pw - ft.Width) / 2, py + (ph - ft.Height) / 2));
+        }
+        dc.Pop();
     }
 }

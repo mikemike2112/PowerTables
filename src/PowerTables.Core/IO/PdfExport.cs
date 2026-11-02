@@ -69,6 +69,19 @@ public static class PdfExport
         return l;
     }
 
+    /// <summary>Divisione in pagine dell'area di stampa: righe (prima in basso) e colonne (poi a destra), con le impostazioni di carta, orientamento e margini.</summary>
+    public static (List<(int From, int To)> Rows, List<(int From, int To)> Cols, (int R1, int C1, int R2, int C2) Range) Pages(Workbook wb, Sheet s)
+    {
+        var range = PrintRange(s);
+        var paper = Workbook.PaperSizes.FirstOrDefault(p => p.Code == wb.PaperSize(s)); if (paper.Name == null) paper = Workbook.PaperSizes[0];
+        bool land = wb.IsLandscape(s);
+        double pw = (land ? paper.H : paper.W) / 25.4 * Pt, ph = (land ? paper.W : paper.H) / 25.4 * Pt;
+        var m = wb.GetMargins(s);
+        double cw = pw - (m.Left + m.Right) * Pt, ch = ph - (m.Top + m.Bottom) * Pt;
+        if (cw < 36 || ch < 36) throw new ArgumentException("I margini lasciano troppo poco spazio nella pagina.");
+        return (Split(range.R1, range.R2, r => s.RowHeight(r), ch), Split(range.C1, range.C2, c => ColPt(s, c), cw), range);
+    }
+
     /// <summary>Scrive il PDF e restituisce il numero di pagine.</summary>
     public static int Export(Workbook wb, Sheet s, string path, CultureInfo? ci = null)
     {

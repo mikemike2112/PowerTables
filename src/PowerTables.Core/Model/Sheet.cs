@@ -58,7 +58,7 @@ public sealed class Sheet
     public int FrozenRows, FrozenCols;
     public double DefaultRowHeight = 15, DefaultColWidth = 9.140625;
     public AutoFilterState? Filter;
-    public bool ShowGridLines = true;
+    public bool ShowGridLines = true, ShowHeadings = true;
     /// <summary>Area di stampa (riferimento in forma di file, es. 'Foglio1'!$A$1:$C$9) o null.</summary>
     public string? PrintArea;
     /// <summary>Sezioni del foglio modellate come XML (caricate dal file, riscritte al salvataggio quando il layout è sporco).</summary>
