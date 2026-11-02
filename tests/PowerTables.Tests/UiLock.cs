@@ -9,12 +9,24 @@ public sealed class UiLock : IDisposable
     public static UiLock Acquire(int timeoutMinutes = 40)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
+        // il Mutex di sistema rende atomici controllo+creazione fra processi; il blocco vero resta la cartella
+        using var mx = new Mutex(false, @"Global\PowerSuiteUiLock");
         while (true)
         {
-            try { Directory.CreateDirectory(@"C:\dev\_office-ref"); if (!Directory.Exists(Path_)) { Directory.CreateDirectory(Path_); return new UiLock { _held = true }; } }
-            catch (IOException) { }
-            // blocco abbandonato (più di 20 minuti): si riprende
-            try { if (Directory.Exists(Path_) && DateTime.UtcNow - Directory.GetCreationTimeUtc(Path_) > TimeSpan.FromMinutes(20)) { Directory.Delete(Path_, true); continue; } } catch (IOException) { }
+            bool got = false;
+            try { got = mx.WaitOne(TimeSpan.FromSeconds(5)); } catch (AbandonedMutexException) { got = true; }   // chi lo teneva è morto: ora è nostro
+            if (got)
+            {
+                try
+                {
+                    Directory.CreateDirectory(@"C:\dev\_office-ref");
+                    if (!Directory.Exists(Path_)) { Directory.CreateDirectory(Path_); return new UiLock { _held = true }; }
+                    // blocco abbandonato (più di 20 minuti): si riprende
+                    if (DateTime.UtcNow - Directory.GetCreationTimeUtc(Path_) > TimeSpan.FromMinutes(20)) { Directory.Delete(Path_, true); Directory.CreateDirectory(Path_); return new UiLock { _held = true }; }
+                }
+                catch (IOException) { }
+                finally { mx.ReleaseMutex(); }
+            }
             if (sw.Elapsed.TotalMinutes > timeoutMinutes) throw new TimeoutException("blocco ui.lock non ottenuto");
             Thread.Sleep(3000);
         }
