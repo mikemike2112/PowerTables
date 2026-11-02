@@ -8,6 +8,8 @@ public class DataToolsUiTests
 {
     static string Cell(JsonElement d, string a) => d.GetProperty("cells").TryGetProperty(a, out var c) ? c.GetProperty("text").GetString()! : "";
 
+    static JsonElement Until(UiDriver ui, Func<JsonElement, bool> ok) { var d = ui.DumpUntil(ok); Assert.True(ok(d), "condizione non raggiunta; dump: " + d); return d; }
+
     [Fact]
     public void RemoveDuplicates_DefineName_AutoSum_ViaRibbon()
     {
@@ -22,10 +24,10 @@ public class DataToolsUiTests
         ui.InvokeId("Dlg_Ok");                                   // conferma la finestra
         ui.Retry(() => { }, () => ui.Find("Dlg_Ok", 800) != null);
         ui.InvokeId("Dlg_Ok");                                   // chiude il riepilogo
-        var d = ui.DumpUntil(x => Cell(x, "A4") == "");
+        var d = Until(ui, x => Cell(x, "A4") == "");
         Assert.Equal("y", Cell(d, "A3"));
         ui.Key("^z");
-        d = ui.DumpUntil(x => Cell(x, "A4") == "x");
+        d = Until(ui, x => Cell(x, "A4") == "x");
 
         // Formule > Definisci nome, poi uso del nome in una formula
         ui.EnterValue(1, 3, "4", "4"); ui.EnterValue(2, 3, "6", "6");
@@ -41,9 +43,9 @@ public class DataToolsUiTests
         ui.ClickCell(3, 7);
         ui.ClickUntil("Scheda Home", "Somma automatica");
         ui.Click("Somma automatica");
-        d = ui.DumpUntil(x => Cell(x, "G3") == "3");
+        d = Until(ui, x => Cell(x, "G3") == "3");
         ui.Key("^z");
-        d = ui.DumpUntil(x => Cell(x, "G3") == "");
+        d = Until(ui, x => Cell(x, "G3") == "");
         ui.KillOwn();
     }
 }

@@ -200,7 +200,57 @@ public partial class MainWindow
                 if (!ParseArea(tl.Text, out var ta) || !ParseArea(vals.Text, out var va)) throw new ArgumentException("Intervallo non valido.");
                 if (!int.TryParse(per.Text, out var p)) throw new ArgumentException("Numero di periodi non valido.");
                 var ns = Wb.CreateForecastSheet(Cur, va, ta, p);
-                G.SwitchSheet(ns); RebuildSheetTabs();
+                G.SwitchSheet(ns); RebuildSheetTabs(); DumpState();
+                d.DialogResult = true;
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { err.Text = ex.Message; }
+        };
+        d.ShowDialog();
+    }
+}
+
+public partial class MainWindow
+{
+    /// <summary>Inserisci &gt; Tabella pivot: un campo riga, un campo valori (somma o conteggio), in un nuovo foglio o in una cella.</summary>
+    void PivotDialog()
+    {
+        var (r1, c1, r2, c2) = CurrentRegion();
+        string Head(int c) => Cur.Get(r1, c).Obj as string ?? "";
+        var d = Form("Tabella pivot", "L'origine deve avere intestazioni di testo nella prima riga.");
+        var src = FormText(d, "Origine (con intestazioni)", Addr.A1(r1, c1) + ":" + Addr.A1(r2, c2), "PvSource");
+        var rowF = FormText(d, "Campo riga (intestazione)", c2 > c1 ? Head(c1) : "", "PvRow");
+        var valF = FormText(d, "Campo valori (intestazione)", c2 > c1 ? Head(c1 + 1) : "", "PvValue");
+        var fn = FormCombo(d, "Funzione", ["Somma", "Conteggio"], 0, "PvFunc");
+        var newSheet = FormCheck(d, "Nuovo foglio", true, "PvNewSheet");
+        var dest = FormText(d, "Altrimenti: cella di destinazione nel foglio corrente", "", "PvDest");
+        var err = ErrBlock(d, "PvError");
+        d.FocusFirst(rowF);
+        d.AddButton("Annulla", "Cancel", cancel: true);
+        var ok = d.AddButton("OK", "Ok", primary: true, close: false);
+        ok.Click += (_, _) =>
+        {
+            try
+            {
+                if (!ParseArea(src.Text, out var a)) throw new ArgumentException("Origine non valida.");
+                int Find(string name)
+                {
+                    for (int c = a.C1; c <= a.C2; c++) if (string.Equals(Cur.Get(a.R1, c).Obj as string, name.Trim(), StringComparison.OrdinalIgnoreCase)) return c;
+                    throw new ArgumentException($"Intestazione «{name.Trim()}» non trovata nella prima riga dell'origine.");
+                }
+                int rc = Find(rowF.Text), dc = Find(valF.Text); bool count = fn.SelectedIndex == 1;
+                var srcSheet = Cur; Sheet? created = null;
+                if (newSheet.IsChecked == true)
+                {
+                    try { Wb.Do("Tabella pivot", () => { created = Wb.InsertSheet(); Wb.CreatePivot(srcSheet, a, rc, dc, count, created, 1, 1, Ci); }); }
+                    catch (ArgumentException) { if (created != null) { Wb.Undo(); RebuildSheetTabs(); } throw; }   // niente foglio vuoto rimasto dopo un errore
+                }
+                else
+                {
+                    if (!ParseArea(dest.Text, out var da)) throw new ArgumentException("Cella di destinazione non valida.");
+                    Wb.CreatePivot(srcSheet, a, rc, dc, count, srcSheet, da.R1, da.C1, Ci);
+                }
+                if (created != null) { G.SwitchSheet(created); RebuildSheetTabs(); DumpState(); }
+                G.RelayoutAll();
                 d.DialogResult = true;
             }
             catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { err.Text = ex.Message; }
