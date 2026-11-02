@@ -257,7 +257,11 @@ public partial class MainWindow
 {
     // ---------- viste, schede foglio, menu contestuale, Vai a ----------
     /// <summary>0 = Normale (unica vista disponibile: layout di pagina e anteprima interruzioni non sono realizzati).</summary>
-    void SetView(int view) { if (view == 0) StatusRight.Text = "Vista Normale"; }
+    void SetView(int view)
+    {
+        G.ViewMode = view; G.InvalidateVisual(); DumpState();
+        StatusRight.Text = view switch { 1 => "Layout di pagina", 2 => "Anteprima interruzioni di pagina", _ => "Vista Normale" };
+    }
 
     void ShowSheetMenu(FrameworkElement anchor, Sheet sh)
     {
@@ -371,4 +375,23 @@ public partial class MainWindow
         ("Totale", () => Fmt(x => x with { Font = x.Font with { Bold = true }, Border = x.Border with { Top = new BorderSide("thin", null), Bottom = new BorderSide("double", null) } })),
         ("Percentuale", () => Fmt(x => x with { NumFmtId = 9, NumFmtCode = null })),
         ("Valuta", () => Fmt(x => x with { NumFmtId = 164, NumFmtCode = "#,##0.00\\ \"€\"" })));
+}
+
+public partial class MainWindow
+{
+    /// <summary>Nuova finestra: un altro processo di PowerTables sullo stesso file se è salvato e senza modifiche, altrimenti su una cartella vuota (con file modificato chiede prima di salvare).</summary>
+    void NewWindow()
+    {
+        string? exe = Environment.ProcessPath;
+        if (exe == null) return;
+        if (Wb.FilePath != null && Wb.Modified) { ThemedDialog.Notify(this, "Salvare le modifiche prima di aprire una nuova finestra sullo stesso file (le due finestre sono indipendenti).", DialogIcon.Info, "Nuova finestra"); return; }
+        try
+        {
+            var psi = new ProcessStartInfo(exe) { UseShellExecute = false };
+            psi.Environment.Remove("PT_TEST_DUMP");
+            if (Wb.FilePath != null) psi.ArgumentList.Add(Wb.FilePath);
+            Process.Start(psi);
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { ThemedDialog.Notify(this, ex.Message, DialogIcon.Error, "Nuova finestra"); }
+    }
 }

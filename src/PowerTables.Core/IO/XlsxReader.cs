@@ -165,6 +165,7 @@ public static class XlsxReader
                     break;
                 case "sheetView":
                     if (r.GetAttribute("showGridLines") is "0" or "false") sh.ShowGridLines = false;
+                    if (r.GetAttribute("showRowColHeaders") is "0" or "false") sh.ShowHeadings = false;
                     break;
                 case "pane":
                     if (r.GetAttribute("state") is "frozen" or "frozenSplit")

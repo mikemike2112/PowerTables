@@ -11,6 +11,8 @@ namespace PowerTables.App;
 public sealed partial class GridCanvas : FrameworkElement
 {
     public const double HeaderH = 22, HeaderW = 50;
+    /// <summary>0 Normale, 1 Layout di pagina, 2 Anteprima interruzioni di pagina.</summary>
+    public int ViewMode;
 
     public Workbook Wb { get; private set; } = null!;
     public Sheet Sheet { get; private set; } = null!;
@@ -452,7 +454,7 @@ public sealed partial class GridCanvas : FrameworkElement
                 if (s) dc.DrawRectangle(accent, null, new Rect(x, 0, w, HeaderH));
                 dc.DrawLine(line, new Point(Math.Floor(x + w) + 0.5, 0), new Point(Math.Floor(x + w) + 0.5, HeaderH));
                 var ft = Fmt(Addr.ColName(c), xf0, s ? Theme.Accent : Theme.TextDim, 0);
-                dc.DrawText(ft, new Point(x + (w - ft.Width) / 2, (HeaderH - ft.Height) / 2));
+                if (Sheet.ShowHeadings) dc.DrawText(ft, new Point(x + (w - ft.Width) / 2, (HeaderH - ft.Height) / 2));
             }
             dc.Pop();
             dc.PushClip(new RectangleGeometry(new Rect(0, q.Clip.Y, HeaderW, q.Clip.Height)));
@@ -463,7 +465,7 @@ public sealed partial class GridCanvas : FrameworkElement
                 if (s) dc.DrawRectangle(accent, null, new Rect(0, y, HeaderW, h));
                 dc.DrawLine(line, new Point(0, Math.Floor(y + h) + 0.5), new Point(HeaderW, Math.Floor(y + h) + 0.5));
                 var ft = Fmt(r.ToString(), xf0, s ? Theme.Accent : Theme.TextDim, 0);
-                dc.DrawText(ft, new Point(HeaderW - ft.Width - 6, y + (h - ft.Height) / 2));
+                if (Sheet.ShowHeadings) dc.DrawText(ft, new Point(HeaderW - ft.Width - 6, y + (h - ft.Height) / 2));
             }
             dc.Pop();
         }

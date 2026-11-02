@@ -301,10 +301,10 @@ public partial class MainWindow
         Button? frz = null;
         frz = (Button)Small("Blocca riquadri", "freeze", () => DropMenu(frz!, ("Blocca riga superiore", () => Wb.SetFreeze(Cur, 1, Cur.FrozenCols)), ("Blocca prima colonna", () => Wb.SetFreeze(Cur, Cur.FrozenRows, 1)), ("Blocca riquadri fino alla selezione", () => Wb.SetFreeze(Cur, G.ActiveRow - 1, G.ActiveCol - 1)), ("Sblocca riquadri", () => Wb.SetFreeze(Cur, 0, 0))), true);
         return Tab("Visualizza",
-            Group("Visualizzazioni cartella di lavoro", Large("Normale", "gridview", () => SetView(0)), Large("Anteprima interruzioni di pagina", "page", null), Small("Layout di pagina", "page", null)),
-            Group("Mostra", Col(Check("Griglia", true, v => { Cur.ShowGridLines = v; Cur.LayoutDirty = true; G.InvalidateVisual(); }), Check("Barra della formula", true, v => FormulaRow.Visibility = v ? Visibility.Visible : Visibility.Collapsed), Check("Intestazioni", true, null))),
+            Group("Visualizzazioni cartella di lavoro", Large("Normale", "gridview", () => SetView(0)), Large("Anteprima interruzioni di pagina", "page", () => SetView(2)), Small("Layout di pagina", "page", () => SetView(1))),
+            Group("Mostra", Col(Check("Griglia", true, v => { Cur.ShowGridLines = v; Cur.LayoutDirty = true; G.InvalidateVisual(); }), Check("Barra della formula", true, v => FormulaRow.Visibility = v ? Visibility.Visible : Visibility.Collapsed), Check("Intestazioni", true, v => { Cur.ShowHeadings = v; Cur.LayoutDirty = true; G.InvalidateVisual(); DumpState(); }))),
             Group("Zoom", Large("Zoom", "zoom", () => AskZoom()), Large("100%", "zoom", () => SetZoom(100))),
-            Group("Finestra", Col(Small("Nuova finestra", "window", null), frz)));
+            Group("Finestra", Col(Small("Nuova finestra", "window", NewWindow), frz)));
     }
 
     FrameworkElement BuildPowers()

@@ -541,6 +541,7 @@ public static partial class XlsxWriter
         if (svs == null) { svs = new XElement(ns + "sheetViews", new XElement(ns + "sheetView", new XAttribute("workbookViewId", 0))); InsertOrdered(root, ns, svs); }
         var sv = svs.Elements(ns + "sheetView").First();
         sv.Element(ns + "pane")?.Remove();
+        sv.SetAttributeValue("showGridLines", sh.ShowGridLines ? null : "0"); sv.SetAttributeValue("showRowColHeaders", sh.ShowHeadings ? null : "0");
         foreach (var s in sv.Elements(ns + "selection").ToList()) s.Remove();
         if (sh.FrozenRows > 0 || sh.FrozenCols > 0)
         {
