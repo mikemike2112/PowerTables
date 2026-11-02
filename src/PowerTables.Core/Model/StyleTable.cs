@@ -268,5 +268,46 @@ public sealed class StyleTable
         return n - 1;
     }
 
+    // ------------- stili differenziali (formattazione condizionale) -------------
+    XElement? Dxfs => Doc.Root!.Element(Ns + "dxfs");
+
+    /// <summary>Colore carattere, riempimento e grassetto di un dxf (indice in &lt;dxfs&gt;); null se assente.</summary>
+    public (string? Font, string? Fill, bool Bold)? GetDxf(int id)
+    {
+        var d = Dxfs?.Elements(Ns + "dxf").ElementAtOrDefault(id);
+        if (d == null) return null;
+        string? fill = ParseColor(d.Element(Ns + "fill")?.Element(Ns + "patternFill")?.Element(Ns + "bgColor")) ?? ParseColor(d.Element(Ns + "fill")?.Element(Ns + "patternFill")?.Element(Ns + "fgColor"));
+        bool bold = d.Element(Ns + "font")?.Element(Ns + "b") is { } b && ((string?)b.Attribute("val") ?? "1") is not ("0" or "false");
+        return (ParseColor(d.Element(Ns + "font")?.Element(Ns + "color")), fill, bold);
+    }
+
+    /// <summary>Aggiunge (o riusa) un dxf con colore carattere, riempimento (AARRGGBB) e grassetto; restituisce l'indice.</summary>
+    public int AddDxf(string? fontColor, string? fillColor, bool bold)
+    {
+        var root = Doc.Root!; var dxfs = Dxfs;
+        if (dxfs == null)
+        {
+            dxfs = new XElement(Ns + "dxfs", new XAttribute("count", 0));
+            var anchor = new[] { "cellStyles", "cellXfs" }.Select(n => root.Element(Ns + n)).FirstOrDefault(e => e != null);
+            if (anchor != null) anchor.AddAfterSelf(dxfs); else root.Add(dxfs);
+        }
+        var existing = dxfs.Elements(Ns + "dxf").Select((e, i) => (e, i)).FirstOrDefault(x => GetDxf(x.i) == (fontColor, fillColor, bold) && x.e.Elements().All(c => c.Name.LocalName is "font" or "fill"));
+        if (existing.e != null) return existing.i;
+        var el = new XElement(Ns + "dxf");
+        if (fontColor != null || bold)
+        {
+            var f = new XElement(Ns + "font");
+            if (bold) f.Add(new XElement(Ns + "b"));
+            if (fontColor != null) f.Add(new XElement(Ns + "color", new XAttribute("rgb", fontColor)));
+            el.Add(f);
+        }
+        if (fillColor != null) el.Add(new XElement(Ns + "fill", new XElement(Ns + "patternFill", new XElement(Ns + "bgColor", new XAttribute("rgb", fillColor)))));
+        dxfs.Add(el);
+        int n = dxfs.Elements().Count();
+        dxfs.SetAttributeValue("count", n);
+        Dirty = true;
+        return n - 1;
+    }
+
     internal void MarkClean() => Dirty = false;
 }
