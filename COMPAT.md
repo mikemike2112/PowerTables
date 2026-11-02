@@ -101,4 +101,4 @@ Verificato con il validatore Open XML e con Excel vero via COM (apre senza ripri
 - **Ricerca obiettivo**: secante poi bisezione, tolleranza 1e-7; nessuna soluzione = nessuna modifica. **Foglio previsione**: regressione lineare con limiti al 95% (t approssimato), **non** il modello ETS di Excel.
 - **Layout di pagina / Anteprima interruzioni**: visualizzazioni di controllo, non l'editor di Excel. **Intestazioni**: nascoste solo le etichette. **Griglia e Intestazioni** ora sono salvate in `showGridLines`/`showRowColHeaders`.
 - **Temi**: cambia il tema dell'interfaccia di PowerTables, non il tema di colori del file (la tavolozza dei colori tema è fissa Office).
-- **Nuovo script / Visualizza script**: lasciati inerti per scelta (niente esecuzione di contenuto attivo).
+- **Scheda Automatizza** (Nuovo script, Visualizza script): tolta dall'interfaccia, niente esecuzione di contenuto attivo. Gli script presenti in un file restano conservati al salvataggio.

@@ -95,12 +95,25 @@ public sealed partial class GridCanvas
     List<double> RangeNums(string f)
     {
         var res = new List<double>();
-        int i = f.LastIndexOf('!'); if (i < 0) return res;
+        EachCell(f, (sh, r, c) => res.Add(sh.GetValue(r, c) is double d ? d : double.NaN));
+        return res;
+    }
+
+    /// <summary>Testo visualizzato delle celle di un intervallo: etichette di categoria del grafico.</summary>
+    List<string> RangeLabels(string f)
+    {
+        var res = new List<string>();
+        EachCell(f, (sh, r, c) => res.Add(Wb.DisplayText(sh, r, c, Culture)));
+        return res;
+    }
+
+    void EachCell(string f, Action<Sheet, int, int> act)
+    {
+        int i = f.LastIndexOf('!'); if (i < 0) return;
         string sn = f[..i]; if (sn.Length > 1 && sn[0] == (char)39) sn = sn[1..^1].Replace("''", "'");
         var sh = Wb.Sheets.FirstOrDefault(x => string.Equals(x.Name, sn, StringComparison.OrdinalIgnoreCase));
-        if (sh == null || !Addr.TryParseRange(f[(i + 1)..].Replace("$", ""), out var r1, out var c1, out var r2, out var c2)) return res;
-        for (int r = r1; r <= Math.Min(r2, r1 + 999); r++) for (int c = c1; c <= c2; c++) res.Add(sh.GetValue(r, c) is double d ? d : double.NaN);
-        return res;
+        if (sh == null || !Addr.TryParseRange(f[(i + 1)..].Replace("$", ""), out var r1, out var c1, out var r2, out var c2)) return;
+        for (int r = r1; r <= Math.Min(r2, r1 + 999); r++) for (int c = c1; c <= c2; c++) act(sh, r, c);
     }
 
     void DrawChart(DrawingContext dc, SheetObject o, Rect rc)
@@ -110,7 +123,7 @@ public sealed partial class GridCanvas
         int n = series.Max(s => s.Count); if (n == 0) return;
         var all = series.SelectMany(s => s).Where(v => !double.IsNaN(v)).ToList(); if (all.Count == 0) return;
         double max = Math.Max(0, all.Max()), min = Math.Min(0, all.Min()); if (max == min) max = min + 1;
-        var plot = new Rect(rc.X + 36, rc.Y + 14, Math.Max(10, rc.Width - 50), Math.Max(10, rc.Height - 40));
+        var plot = new Rect(rc.X + 36, rc.Y + 14, Math.Max(10, rc.Width - 50), Math.Max(10, rc.Height - 54));   // sotto: etichette di categoria e legenda
         double Y(double v) => plot.Bottom - (v - min) / (max - min) * plot.Height;
         var grid = new Pen(new SolidColorBrush(Color.FromRgb(0xD9, 0xD9, 0xD9)), 1);
         double ppd = VisualTreeHelper.GetDpi(this).PixelsPerDip;
@@ -147,6 +160,15 @@ public sealed partial class GridCanvas
             }
         }
         dc.DrawLine(new Pen(Brushes.Gray, 1), new Point(plot.X, Y(0)), new Point(plot.Right, Y(0)));
+        if (sp.Series[0].Categories is { } cats)
+        {
+            var labels = RangeLabels(cats);
+            for (int i = 0; i < Math.Min(n, labels.Count); i++)
+            {
+                var t = new FormattedText(labels[i], CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Calibri"), 10, Brushes.Gray, ppd) { MaxTextWidth = Math.Max(1, slot), MaxLineCount = 1, Trimming = TextTrimming.CharacterEllipsis, TextAlignment = TextAlignment.Center };
+                dc.DrawText(t, new Point(plot.X + slot * i, plot.Bottom + 2));
+            }
+        }
         double lx = plot.X;
         for (int si = 0; si < sp.Series.Count; si++)
         {
