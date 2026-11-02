@@ -97,8 +97,9 @@ public static class XlsxReader
         foreach (var dn in wdoc.Root.Element(m + "definedNames")?.Elements(m + "definedName") ?? [])
         {
             string n = (string?)dn.Attribute("name") ?? "";
+            if (n == "_xlnm.Print_Area" && (int?)dn.Attribute("localSheetId") is { } ps && ps >= 0 && ps < wb.Sheets.Count) wb.Sheets[ps].PrintArea = dn.Value;
             if (n.StartsWith("_xlnm.") || (bool?)dn.Attribute("hidden") == true && n.StartsWith("_")) continue;
-            if ((int?)dn.Attribute("localSheetId") is { } ls) wb.LocalNames[(ls, n.ToUpperInvariant())] = dn.Value;
+            if ((int?)dn.Attribute("localSheetId") is { } ls) { wb.LocalNames[(ls, n.ToUpperInvariant())] = dn.Value; wb.LocalNameCase[(ls, n.ToUpperInvariant())] = n; }
             else wb.Names[n] = dn.Value;
         }
         wb.Styles.MarkClean();

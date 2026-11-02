@@ -44,12 +44,15 @@ public sealed partial class Workbook
         var op = new LineOp(s.Name, rows, at, count);
         var inv = new LineOp(s.Name, rows, at, -count);
         var oldNames = new Dictionary<string, string>(Names); var oldLocal = new Dictionary<(int, string), string>(LocalNames);
+        var oldPrint = Sheets.Select(x => x.PrintArea).ToArray();
         void AdjustNames()
         {
+            NamesDirty = true;
+            foreach (var sh in Sheets) if (sh.PrintArea != null) sh.PrintArea = FormulaText.AdjustLines(sh.PrintArea, "", s.Name, rows, at, count);
             foreach (var k in Names.Keys.ToList()) Names[k] = FormulaText.AdjustLines(Names[k], "", s.Name, rows, at, count);
             foreach (var k in LocalNames.Keys.ToList()) LocalNames[k] = FormulaText.AdjustLines(LocalNames[k], "", s.Name, rows, at, count);
         }
-        void RestoreNames() { Replace(Names, oldNames); Replace(LocalNames, oldLocal); }
+        void RestoreNames() { Replace(Names, oldNames); Replace(LocalNames, oldLocal); for (int i = 0; i < oldPrint.Length && i < Sheets.Count; i++) Sheets[i].PrintArea = oldPrint[i]; }
         Begin(name);
         try
         {
