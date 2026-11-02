@@ -68,6 +68,8 @@ public partial class MainWindow : Window
                 else if (e.Key == Key.I && !Host.Editing) { Toggle(x => x.Font.Italic, (x, v) => x with { Font = x.Font with { Italic = v } }); e.Handled = true; }
                 else if (e.Key == Key.U && !Host.Editing) { Toggle(x => x.Font.Underline, (x, v) => x with { Font = x.Font with { Underline = v } }); e.Handled = true; }
                 else if (e.Key == Key.D && !Host.Editing) { FillDirection(true); e.Handled = true; }
+                else if (e.Key == Key.F && !Host.Editing) { ShowFind(false); e.Handled = true; }
+                else if (e.Key == Key.H && !Host.Editing) { ShowFind(true); e.Handled = true; }
                 else if (e.Key == Key.R && !Host.Editing) { FillDirection(false); e.Handled = true; }
             }
         };

@@ -64,8 +64,9 @@ public class FormulaEditUiTests
         Thread.Sleep(300);
         Assert.Equal("=SUM(A4)", Bar(ui)); Assert.Equal("1", ui.Probe()["edit"]);
         // clic sulle intestazioni: ignorato
-        var (hx, hy) = ui.CellCenter(1, 2); ui.ClickAt(hx, hy - 40);
-        Assert.Equal("1", ui.Probe()["edit"]);
+        var (hx, hy) = ui.HeaderCenter(2); ui.ClickAt(hx, hy);   // prima: CellCenter-40 cadeva sul pulsante ✕ della barra della formula
+        Thread.Sleep(300);
+        Assert.Equal("=SUM(A4)", Bar(ui)); Assert.Equal("1", ui.Probe()["edit"]);
         ui.Key("{ENTER}");
         var d = ui.DumpUntil(x => Cell(x, "C6") == "40");
         Assert.Equal("=SUM(A4)", d.GetProperty("cells").GetProperty("C6").GetProperty("f").GetString());   // riferimenti relativi, nessun $ inserito da solo

@@ -22,6 +22,9 @@ public sealed class ColInfo
     public uint Style;
 }
 
+/// <summary>Inserimento (Count&gt;0) o eliminazione (Count&lt;0) di righe/colonne non ancora riportata su CF, convalida, nomi nel file.</summary>
+public sealed record LineOp(string Sheet, bool Rows, int At, int Count);
+
 public readonly record struct MergeRange(int R1, int C1, int R2, int C2)
 {
     public bool Contains(int r, int c) => r >= R1 && r <= R2 && c >= C1 && c <= C2;
@@ -48,6 +51,7 @@ public sealed class Sheet
     public readonly List<MergeRange> Merges = [];
     /// <summary>Testo ricco originale (contenuto XML di si/is) per cella: riscritto al salvataggio finché il testo della cella non cambia.</summary>
     internal readonly Dictionary<long, (string Plain, string Xml)> Rich = [];
+    internal readonly List<LineOp> LineOps = [];
     public int FrozenRows, FrozenCols;
     public double DefaultRowHeight = 15, DefaultColWidth = 9.140625;
     public AutoFilterState? Filter;

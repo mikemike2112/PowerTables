@@ -293,6 +293,13 @@ public sealed class UiDriver : IDisposable
         return ((int)(ox + (50 + (col - 0.5) * 64) * s), (int)(oy + (22 + (row - 0.5) * 20) * s));
     }
 
+    /// <summary>Centro dell'intestazione di colonna (alta 22 unità, sopra la riga 1).</summary>
+    public (int X, int Y) HeaderCenter(int col)
+    {
+        var (x, y1) = CellCenter(1, col); var (_, y2) = CellCenter(2, col);
+        return (x, y1 - (y2 - y1) * 21 / 20);
+    }
+
     public void ClickCell(int row, int col) { var (x, y) = CellCenter(row, col); ClickAt(x, y); }
 
     public void Screenshot(string path)

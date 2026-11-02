@@ -121,4 +121,46 @@ public static class FormulaText
             t.Ref.Sheet = newName; return t.Ref.Text();
         });
     }
+
+    /// <summary>
+    /// Mappa un intervallo di indici [lo,hi] dopo inserimento (count&gt;0) o eliminazione (count&lt;0) di |count| righe/colonne da <paramref name="at"/>.
+    /// null = intervallo interamente eliminato.
+    /// </summary>
+    public static (int Lo, int Hi)? MapSpan(int lo, int hi, int at, int count)
+    {
+        if (count > 0) return (lo >= at ? lo + count : lo, hi >= at ? hi + count : hi);
+        int n = -count, end = at + n - 1;
+        if (lo >= at && hi <= end) return null;
+        int nl = lo < at ? lo : lo <= end ? at : lo - n;
+        int nh = hi < at ? hi : hi <= end ? at - 1 : hi - n;
+        return (nl, nh);
+    }
+
+    /// <summary>Aggiorna i riferimenti a <paramref name="target"/> (foglio <paramref name="ctx"/> = foglio della formula) dopo inserimento/eliminazione di righe o colonne.</summary>
+    public static string AdjustLines(string formula, string ctx, string target, bool rows, int at, int count)
+    {
+        List<Token> toks;
+        try { toks = Lexer.Tokenize(formula); } catch (FormatException) { return formula; }
+        return Rebuild(formula, toks, t =>
+        {
+            if (t.Kind != T.Ref) return null;
+            var r = t.Ref!;
+            if (!string.Equals(r.Sheet ?? ctx, target, StringComparison.OrdinalIgnoreCase)) return null;
+            int a = rows ? r.A.Row : r.A.Col, b = r.IsRange ? (rows ? r.B.Row : r.B.Col) : a;
+            if (a == 0) return null; // l'asse non è interessato (es. colonna intera con righe)
+            var m = MapSpan(Math.Min(a, b), Math.Max(a, b), at, count);
+            if (m == null) return "#REF!";
+            var (lo, hi) = m.Value;
+            if (hi < lo || hi > (rows ? Addr.MaxRow : Addr.MaxCol)) return "#REF!";
+            // mantiene l'ordine originale degli estremi
+            int na = a <= b ? lo : hi, nb = a <= b ? hi : lo;
+            var n = new RefToken { Sheet = r.Sheet, IsRange = r.IsRange, A = r.A, B = r.B };
+            if (rows) { n.A.Row = na; n.B.Row = nb; } else { n.A.Col = na; n.B.Col = nb; }
+            return n.Text();
+        });
+    }
+
+    /// <summary>Aggiorna un elenco di intervalli separati da spazio (sqref); vuoto se tutto eliminato.</summary>
+    public static string AdjustSqref(string sqref, bool rows, int at, int count) =>
+        string.Join(' ', sqref.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(x => AdjustLines(x, "", "", rows, at, count)).Where(x => !x.Contains("#REF!")));
 }
