@@ -175,6 +175,7 @@ public sealed partial class Workbook
 
     void Recalc()
     {
+        _changed.RemoveWhere(x => x.Item1.Index < 0 || x.Item1.Index >= Sheets.Count || !ReferenceEquals(Sheets[x.Item1.Index], x.Item1));   // fogli tolti (Annulla di un nuovo foglio)
         if (_changed.Count == 0) { return; }
         if (_formulasChanged || _graphReady || true)
         {
