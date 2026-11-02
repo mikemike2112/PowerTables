@@ -15,6 +15,7 @@ public sealed partial class Workbook
     void AdjustSections(Sheet s, bool rows, int at, int count)
     {
         s.CfVersion++;
+        AdjustTables(s, rows, at, count);
         string Adj(string f) => FormulaText.AdjustLines(f, s.Name, s.Name, rows, at, count);
         foreach (var cf in s.CondFmt.ToList())
         {

@@ -87,12 +87,23 @@ public static class XlsxReader
         {
             string name = (string?)se.Attribute("name") ?? "Foglio" + (idx + 1);
             string? rid = (string?)se.Attribute(r + "id");
-            var sh = new Sheet(name) { Book = wb, Index = idx++, PartId = rid, OrigName = name };
+            var sh = new Sheet(name) { Book = wb, Index = idx, FileIndex = idx++, PartId = rid, OrigName = name };
             wb.Sheets.Add(sh);
             if (rid == null || wbp.GetPartById(rid) is not WorksheetPart wsp) { sh.Loaded = false; continue; } // chartsheet ecc.: intatto
             byte[] sb;
             using (var s = wsp.GetStream(FileMode.Open, FileAccess.Read)) { var ms = new MemoryStream(); s.CopyTo(ms); sb = ms.ToArray(); }
             LoadSheet(sh, sb, sst, richSst);
+            foreach (var tp in wsp.TableDefinitionParts)
+            {
+                try
+                {
+                    XElement td;
+                    using (var ts = tp.GetStream(FileMode.Open, FileAccess.Read)) td = LoadXml(ts).Root!;
+                    if (Addr.TryParseRange((string?)td.Attribute("ref") ?? "", out var tr1, out var tc1, out var tr2, out var tc2))
+                        sh.Tables.Add(new TableDef { Name = (string?)td.Attribute("displayName") ?? (string?)td.Attribute("name") ?? "", R1 = tr1, C1 = tc1, R2 = tr2, C2 = tc2, Style = (string?)td.Element(m + "tableStyleInfo")?.Attribute("name") ?? "", NoHeader = (int?)td.Attribute("headerRowCount") == 0, PartRel = wsp.GetIdOfPart(tp) });
+                }
+                catch (XmlException) { }   // tabella illeggibile: resta intatta nel file
+            }
         }
         foreach (var dn in wdoc.Root.Element(m + "definedNames")?.Elements(m + "definedName") ?? [])
         {

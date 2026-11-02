@@ -33,7 +33,7 @@ public partial class MainWindow
         return Wrap(label, sp, act, tip, new Thickness(4, 4, 4, 2));
     }
 
-    FrameworkElement LargeMenu(string label, string icon, Action<Button> open) { Button? b = null; b = (Button)Large(label, icon, () => open(b!), true); return b; }
+    FrameworkElement LargeMenu(string label, string icon, Action<Button> open, string? tip = null) { Button? b = null; b = (Button)Large(label, icon, () => open(b!), true, tip); return b; }
 
     FrameworkElement Small(string label, string? icon, Action? act, bool drop = false, string? tip = null, double minW = 0)
     {
@@ -166,7 +166,7 @@ public partial class MainWindow
     FrameworkElement BuildHome()
     {
         var fontLabel = default(TextBlock); var sizeLabel = default(TextBlock);
-        var paste = Large("Incolla", "paste", DoPaste, true, "Incolla (Ctrl+V)");
+        var paste = LargeMenu("Incolla", "paste", b => DropMenu(b, ("Incolla", () => DoPaste()), ("Incolla valori", () => DoPaste(1)), ("Incolla formati", () => DoPaste(2))), "Incolla (Ctrl+V)");
         var clip = Group("Appunti", paste, Col(Small("Taglia", "cut", () => DoCopy(true), tip: "Taglia (Ctrl+X)"), Small("Copia", "copy", () => DoCopy(false), tip: "Copia (Ctrl+C)"), Small("Copia formato", "fill", CopyFormat)));
         _fontBox = Combo("Calibri", 118, b => DropMenu(b, new[] { "Calibri", "Arial", "Segoe UI", "Times New Roman", "Courier New", "Verdana", "Georgia", "Consolas" }.Select(n => (n, (Action)(() => Fmt(x => x with { Font = x.Font with { Name = n } })))).ToArray()), "Tipo di carattere", out fontLabel);
         _fontLabel = fontLabel;
@@ -192,7 +192,7 @@ public partial class MainWindow
             ("Generale", () => NumFormat(0)), ("Numero", () => NumFormat(2)), ("Migliaia", () => NumFormat(4)), ("Valuta", () => NumFormat(0, "#,##0.00\\ \"€\"")), ("Percentuale", () => NumFormat(10)),
             ("Data breve", () => NumFormat(14)), ("Data estesa", () => NumFormat(0, "dddd d mmmm yyyy")), ("Ora", () => NumFormat(21)), ("Scientifico", () => NumFormat(11)), ("Testo", () => NumFormat(49))), "Formato numero", out _nfLabel);
         var numbers = Group("Numeri", Col(nfB, RowOf(Small("€", null, () => NumFormat(0, "#,##0.00\\ \"€\""), tip: "Formato valuta"), Small("%", null, () => NumFormat(9), tip: "Stile percentuale"), Small("000", null, () => NumFormat(4), tip: "Stile separatore"), Small(".00+", null, () => Decimals(1), tip: "Aumenta decimali"), Small(".0−", null, () => Decimals(-1), tip: "Diminuisci decimali"))));
-        var styles = Group("Stili", LargeMenu("Formattazione condizionale", "table", CondFormatMenu), Large("Formatta come tabella", "table", null, true), Large("Stili cella", "table", null, true));
+        var styles = Group("Stili", LargeMenu("Formattazione condizionale", "table", CondFormatMenu), LargeMenu("Formatta come tabella", "table", TableStyleMenu), Large("Stili cella", "table", null, true));
         Button? insB = null, delB = null, fmtB = null;
         fmtB = (Button)Small("Formato", "table", () => DropMenu(fmtB!, ("Formato celle...", FormatCellsDialog)), true);
         insB = (Button)Small("Inserisci", "rowplus", () => DropMenu(insB!, ("Inserisci righe", () => EditLines(true, true)), ("Inserisci colonne", () => EditLines(false, true))), true);
@@ -201,7 +201,7 @@ public partial class MainWindow
         var cells = Group("Celle", Col(insB, delB, fmtB));
         Button? sortB = null;
         sortB = (Button)Large("Ordina e filtra", "sort", () => DropMenu(sortB!, ("Ordina dalla A alla Z", () => DoSort(true)), ("Ordina dalla Z alla A", () => DoSort(false)), ("Filtro", ToggleFilter)), true);
-        var edit = Group("Modifica", Col(Small("Somma automatica", "sigma", AutoSum, tip: "Somma automatica"), Small("Riempi giù", "fill", () => FillDirection(true), tip: "Riempi in basso (Ctrl+D)"), Small("Cancella", "clear", () => G.ClearSelection(), tip: "Cancella contenuto (Canc)")), sortB, Large("Trova e seleziona", "find", () => ShowFind(false), true));
+        var edit = Group("Modifica", Col(Small("Somma automatica", "sigma", AutoSum, tip: "Somma automatica"), Small("Riempi giù", "fill", () => FillDirection(true), tip: "Riempi in basso (Ctrl+D)"), Small("Cancella", "clear", () => G.ClearSelection(), tip: "Cancella contenuto (Canc)")), sortB, LargeMenu("Trova e seleziona", "find", b => DropMenu(b, ("Trova...", () => ShowFind(false)), ("Sostituisci...", () => ShowFind(true)), ("Vai a...", GoToDialog))));
         return Tab("Home", clip, font, align, numbers, styles, cells, edit);
     }
 
@@ -219,7 +219,7 @@ public partial class MainWindow
 
     // ---------- Inserisci / Layout / Formule / Dati / Visualizza ----------
     FrameworkElement BuildInsert() => Tab("Inserisci",
-        Group("Tabelle", Large("Tabella pivot", "table", null), Large("Tabella", "table", null)),
+        Group("Tabelle", Large("Tabella pivot", "table", null), Large("Tabella", "table", () => TableDialog())),
         Group("Illustrazioni", Large("Immagini", "image", null), Large("Forme", "page", null)),
         Group("Grafici", Large("Grafici consigliati", "chart", null), Large("Istogramma", "chart", null), Large("Linee", "chart", null)),
         Group("Collegamenti", Large("Collegamento", "page", LinkDialog)),
@@ -292,7 +292,7 @@ public partial class MainWindow
 
     FrameworkElement BuildData() => Tab("Dati",
         Group("Recupera e trasforma dati", Large("Da testo/CSV", "csv", ImportCsv)),
-        Group("Ordina e filtra", Col(Small("Ordina dalla A alla Z", "sortaz", () => DoSort(true)), Small("Ordina dalla Z alla A", "sortza", () => DoSort(false))), Large("Filtro", "filter", ToggleFilter), Col(Small("Cancella", "clear", () => { if (Cur.Filter != null) Wb.ClearAutoFilter(Cur); }), Small("Riapplica", "filter", () => { Wb.ReapplyFilter(Cur, Ci); G.RelayoutAll(); }), Small("Avanzate", "filter", null))),
+        Group("Ordina e filtra", Col(Small("Ordina dalla A alla Z", "sortaz", () => DoSort(true)), Small("Ordina dalla Z alla A", "sortza", () => DoSort(false))), Large("Filtro", "filter", ToggleFilter), Col(Small("Cancella", "clear", () => Wb.ClearFilterCriteria(Cur, Ci), tip: "Cancella i criteri del filtro (restano le frecce)"), Small("Riapplica", "filter", () => { Wb.ReapplyFilter(Cur, Ci); G.RelayoutAll(); }), Small("Avanzate", "filter", null))),
         Group("Strumenti dati", Large("Testo in colonne", "table", TextToColumnsDialog), Large("Rimuovi duplicati", "table", RemoveDuplicatesDialog), Large("Convalida dati", "table", DataValidationDialog)),
         Group("Previsione", Large("Analisi di simulazione", "chart", null, true), Large("Foglio previsione", "chart", null)));
 
@@ -301,7 +301,7 @@ public partial class MainWindow
         Button? frz = null;
         frz = (Button)Small("Blocca riquadri", "freeze", () => DropMenu(frz!, ("Blocca riga superiore", () => Wb.SetFreeze(Cur, 1, Cur.FrozenCols)), ("Blocca prima colonna", () => Wb.SetFreeze(Cur, Cur.FrozenRows, 1)), ("Blocca riquadri fino alla selezione", () => Wb.SetFreeze(Cur, G.ActiveRow - 1, G.ActiveCol - 1)), ("Sblocca riquadri", () => Wb.SetFreeze(Cur, 0, 0))), true);
         return Tab("Visualizza",
-            Group("Visualizzazioni cartella di lavoro", Large("Normale", "gridview", () => { }), Large("Anteprima interruzioni di pagina", "page", null), Small("Layout di pagina", "page", null)),
+            Group("Visualizzazioni cartella di lavoro", Large("Normale", "gridview", () => SetView(0)), Large("Anteprima interruzioni di pagina", "page", null), Small("Layout di pagina", "page", null)),
             Group("Mostra", Col(Check("Griglia", true, v => { Cur.ShowGridLines = v; Cur.LayoutDirty = true; G.InvalidateVisual(); }), Check("Barra della formula", true, v => FormulaRow.Visibility = v ? Visibility.Visible : Visibility.Collapsed), Check("Intestazioni", true, null))),
             Group("Zoom", Large("Zoom", "zoom", () => AskZoom()), Large("100%", "zoom", () => SetZoom(100))),
             Group("Finestra", Col(Small("Nuova finestra", "window", null), frz)));

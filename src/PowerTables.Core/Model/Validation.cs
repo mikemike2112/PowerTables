@@ -50,12 +50,13 @@ public sealed partial class Workbook
     /// <summary>Esegue una modifica alle sezioni XML del foglio con annulla/ripeti (istantanea di tutte le sezioni).</summary>
     void ChangeSections(Sheet s, string label, Action mutate)
     {
-        (List<XElement> Cf, List<XElement> Dv, List<XElement> Lk, XElement? Pm, XElement? Ps, XElement? Po) Snap() =>
-            (CloneList(s.CondFmt), CloneList(s.DataVal), CloneList(s.Links), s.PageMargins == null ? null : new XElement(s.PageMargins), s.PageSetup == null ? null : new XElement(s.PageSetup), s.PrintOptions == null ? null : new XElement(s.PrintOptions));
-        void Put((List<XElement> Cf, List<XElement> Dv, List<XElement> Lk, XElement? Pm, XElement? Ps, XElement? Po) v)
+        (List<XElement> Cf, List<XElement> Dv, List<XElement> Lk, XElement? Pm, XElement? Ps, XElement? Po, List<TableDef> Tb) Snap() =>
+            (CloneList(s.CondFmt), CloneList(s.DataVal), CloneList(s.Links), s.PageMargins == null ? null : new XElement(s.PageMargins), s.PageSetup == null ? null : new XElement(s.PageSetup), s.PrintOptions == null ? null : new XElement(s.PrintOptions), s.Tables.Select(t => t.Clone()).ToList());
+        void Put((List<XElement> Cf, List<XElement> Dv, List<XElement> Lk, XElement? Pm, XElement? Ps, XElement? Po, List<TableDef> Tb) v)
         {
             SetList(s.CondFmt, v.Cf); SetList(s.DataVal, v.Dv); SetList(s.Links, v.Lk);
             s.PageMargins = v.Pm == null ? null : new XElement(v.Pm); s.PageSetup = v.Ps == null ? null : new XElement(v.Ps); s.PrintOptions = v.Po == null ? null : new XElement(v.Po);
+            s.Tables.Clear(); s.Tables.AddRange(v.Tb.Select(t => t.Clone()));
             s.LayoutDirty = true; s.CfVersion++;
         }
         var before = Snap();

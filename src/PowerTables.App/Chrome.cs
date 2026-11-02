@@ -55,10 +55,9 @@ public partial class MainWindow
         WinButtons.Children.Add(CaptionBtn("M6 6l12 12 M18 6L6 18", "Chiudi", Close));
         // barra della formula: annulla/conferma
         FormulaButtons.Children.Add(Glyph("close", "Annulla modifica", () => { Host.Cancel(); RefreshBar(); }, 14));
-        FormulaButtons.Children.Add(Glyph("func", "Inserisci funzione", () => { }, 14));
-        FormulaButtons.Children[1].IsEnabled = false; ((Button)FormulaButtons.Children[1]).ToolTip = "Non ancora disponibile";
+        FormulaButtons.Children.Add(Glyph("func", "Inserisci funzione", () => FunctionDialog(), 14));
         // barra di stato: viste e zoom
-        StatusRightPanel.Children.Add(StatusView("gridview", "Normale", true));
+        StatusRightPanel.Children.Add(StatusView("gridview", "Normale", true, () => SetView(0)));
         StatusRightPanel.Children.Add(StatusView("page", "Layout di pagina", false));
         StatusRightPanel.Children.Add(StatusView("table", "Anteprima interruzioni di pagina", false));
         StatusRightPanel.Children.Add(Glyph("minus", "Riduci zoom", () => SetZoom(Host.ZoomPct - 10), 12));
@@ -197,10 +196,11 @@ public partial class MainWindow
         return b;
     }
 
-    FrameworkElement StatusView(string icon, string tip, bool on)
+    FrameworkElement StatusView(string icon, string tip, bool on, Action? click = null)
     {
         var b = new Button { Content = Icons.Make(icon, 14), ToolTip = on ? tip : "Non ancora disponibile", IsEnabled = on, Padding = new Thickness(8, 3, 8, 3), BorderBrush = on ? R("AccentBrush") : Brushes.Transparent };
         b.SetValue(AutomationProperties.NameProperty, tip);
+        if (click != null) b.Click += (_, _) => { click(); G.Focus(); };
         return b;
     }
 

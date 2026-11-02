@@ -20,6 +20,7 @@ public partial class MainWindow
     {
         G.ValidationListRequested += (r, c, pt) => ShowValidationList(r, c, pt);
         G.LinkClicked += OpenLink;
+        G.MouseRightButtonUp += (_, _) => ShowGridMenu();
     }
 
     /// <summary>Testo digitato → formula in forma di file: «=...» è una formula, un numero resta numero, il resto diventa testo tra virgolette.</summary>
@@ -250,4 +251,106 @@ public partial class MainWindow
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { ThemedDialog.Notify(this, ex.Message, DialogIcon.Error, "Stampa non riuscita"); }
     }
+}
+
+public partial class MainWindow
+{
+    // ---------- viste, schede foglio, menu contestuale, Vai a ----------
+    /// <summary>0 = Normale (unica vista disponibile: layout di pagina e anteprima interruzioni non sono realizzati).</summary>
+    void SetView(int view) { if (view == 0) StatusRight.Text = "Vista Normale"; }
+
+    void ShowSheetMenu(FrameworkElement anchor, Sheet sh)
+    {
+        void Refresh() { RebuildSheetTabs(); G.Focus(); }
+        DropMenu(anchor,
+            ("Inserisci foglio", () => { var n = Wb.InsertSheet(null, sh.Index); G.SwitchSheet(n); Refresh(); }),
+            ("Elimina", () =>
+            {
+                if (Wb.Sheets.Count <= 1) { ThemedDialog.Notify(this, "Non si può eliminare l'unico foglio della cartella di lavoro.", DialogIcon.Warning); return; }
+                if (!ThemedDialog.Confirm(this, "Elimina foglio", $"Eliminare il foglio «{sh.Name}»? I riferimenti a esso nelle formule diventeranno #REF!. Si può annullare con Ctrl+Z.", "Elimina", "Annulla", DialogIcon.Warning)) return;
+                int idx = sh.Index; bool cur = ReferenceEquals(sh, Cur);
+                Wb.DeleteSheet(sh);
+                if (cur || !Wb.Sheets.Contains(Cur)) G.SwitchSheet(Wb.Sheets[Math.Min(idx, Wb.Sheets.Count - 1)]);
+                Refresh();
+            }),
+            ("Rinomina...", () => RenameSheet(sh)),
+            ("Sposta a sinistra", () => { Wb.MoveSheet(sh, -1); Refresh(); }),
+            ("Sposta a destra", () => { Wb.MoveSheet(sh, 1); Refresh(); }));
+    }
+
+    void ShowGridMenu()
+    {
+        var pop = new Popup { PlacementTarget = G, Placement = PlacementMode.MousePoint, StaysOpen = false, AllowsTransparency = true };
+        var sp = new StackPanel { Margin = new Thickness(2) };
+        void Add(string label, Action act)
+        {
+            var b = new Button { Content = label, HorizontalContentAlignment = HorizontalAlignment.Left, MinWidth = 200 };
+            AutomationProperties.SetName(b, label);
+            b.Click += (_, _) => { pop.IsOpen = false; try { act(); } catch (InvalidOperationException ex) { ThemedDialog.Notify(this, ex.Message, DialogIcon.Warning); } G.Focus(); };
+            sp.Children.Add(b);
+        }
+        Add("Taglia", () => DoCopy(true)); Add("Copia", () => DoCopy(false)); Add("Incolla", () => DoPaste()); Add("Incolla valori", () => DoPaste(1));
+        Add("Inserisci righe", () => EditLines(true, true)); Add("Inserisci colonne", () => EditLines(false, true));
+        Add("Elimina righe", () => EditLines(true, false)); Add("Elimina colonne", () => EditLines(false, false));
+        if (Wb.TableAt(Cur, G.ActiveRow, G.ActiveCol) is { } tbl) Add("Converti in intervallo", () => { Wb.RemoveTable(Cur, tbl); G.InvalidateVisual(); });
+        Add("Cancella contenuto", () => G.ClearSelection());
+        pop.Child = new Border { Background = R("PanelBrush"), BorderBrush = R("AccentBrush"), BorderThickness = new Thickness(1), Child = sp };
+        pop.IsOpen = true;
+    }
+
+    void GoToDialog()
+    {
+        var d = Form("Vai a", "Riferimento (es. B5, A1:C9) o nome definito.");
+        var t = FormText(d, "Riferimento", "", "GoToRef");
+        d.FocusFirst(t);
+        d.AddButton("Annulla", "Cancel", cancel: true);
+        var ok = d.AddButton("OK", "Ok", primary: true, close: false);
+        var err = new TextBlock { Foreground = Theme.Brush(Color.FromRgb(0xe5, 0x5b, 0x5b)), FontFamily = new FontFamily("Segoe UI"), FontSize = 12, Margin = new Thickness(0, 8, 0, 0) };
+        AutomationProperties.SetAutomationId(err, "GoToError");
+        d.Body.Children.Add(err);
+        ok.Click += (_, _) =>
+        {
+            string text = t.Text.Trim();
+            if (Wb.TryGetName(text, Cur, out var nm)) text = nm;
+            string target = text[(text.LastIndexOf('!') + 1)..].Replace("$", "");
+            if (Addr.TryParseRange(target, out var a, out var b, out var c, out var e)) { G.SelectRange(a, b, c, e); G.EnsureVisible(a, b); d.DialogResult = true; }
+            else if (Addr.TryParse(target, out var r, out var cc)) { G.Select(r, cc); G.EnsureVisible(r, cc); d.DialogResult = true; }
+            else err.Text = "Riferimento non valido.";
+        };
+        d.ShowDialog();
+    }
+}
+
+public partial class MainWindow
+{
+    // ---------- Tabelle ----------
+    void TableDialog(string? style = null)
+    {
+        var (r1, c1, r2, c2) = CurrentRegion();
+        if (G.Selection is var g && (g.R1 != g.R2 || g.C1 != g.C2)) (r1, c1, r2, c2) = (g.R1, g.C1, Math.Min(g.R2, Math.Max(g.R1, Cur.MaxRow)), Math.Min(g.C2, Math.Max(g.C1, Cur.MaxCol)));
+        var d = Form("Crea tabella");
+        var area = FormText(d, "Dati della tabella", Addr.A1(r1, c1) + ":" + Addr.A1(r2, c2), "TblRange");
+        var header = FormCheck(d, "La tabella ha intestazioni", true, "TblHeader");
+        var st = FormCombo(d, "Stile", Workbook.TableStyles.Select(x => x.Label).ToArray(), Math.Max(0, Array.FindIndex(Workbook.TableStyles, x => x.Style == style)), "TblStyle");
+        var err = new TextBlock { Foreground = Theme.Brush(Color.FromRgb(0xe5, 0x5b, 0x5b)), FontFamily = new FontFamily("Segoe UI"), FontSize = 12, Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
+        AutomationProperties.SetAutomationId(err, "TblError");
+        d.Body.Children.Add(err);
+        d.FocusFirst(area);
+        d.AddButton("Annulla", "Cancel", cancel: true);
+        var ok = d.AddButton("OK", "Ok", primary: true, close: false);
+        ok.Click += (_, _) =>
+        {
+            try
+            {
+                if (!Addr.TryParseRange(area.Text.Replace("$", "").Trim(), out var a, out var b, out var c, out var e)) throw new ArgumentException("Intervallo non valido.");
+                Wb.CreateTable(Cur, a, b, c, e, header.IsChecked == true, Workbook.TableStyles[st.SelectedIndex].Style);
+                G.SelectRange(a, b, header.IsChecked == true ? c : c + 1, e);
+                d.DialogResult = true; G.InvalidateVisual();
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { err.Text = ex.Message; }
+        };
+        d.ShowDialog();
+    }
+
+    void TableStyleMenu(Button anchor) => DropMenu(anchor, Workbook.TableStyles.Select(x => ("Tabella " + x.Label.ToLowerInvariant(), (Action)(() => TableDialog(x.Style)))).ToArray());
 }

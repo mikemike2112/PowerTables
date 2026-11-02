@@ -197,11 +197,16 @@ public sealed class GridCanvas : FrameworkElement
             {
                 double cw = M.ColW(c); if (cw <= 0) continue;
                 if (skip.Contains(Addr.Key(r, c))) continue;
-                if (!sh.CellMap.TryGetValue(Addr.Key(r, c), out var cell)) continue;
+                var tl = sh.Tables.Count > 0 ? wb.TableLookAt(sh, r, c) : null;   // stile della tabella: sotto il formato della cella
+                if (!sh.CellMap.TryGetValue(Addr.Key(r, c), out var cell))
+                {
+                    if (tl?.Fill != null) dc.DrawRectangle(Theme.Brush(Argb(tl.Value.Fill!)), null, new Rect(XOf(c), y, cw, rh));
+                    continue;
+                }
                 var cf = sh.CondFmt.Count > 0 ? wb.CondFormatAt(sh, r, c, Culture) : null;
-                if (cell.Style == 0 && cf?.Fill == null) continue;
+                if (cell.Style == 0 && cf?.Fill == null && tl?.Fill == null) continue;
                 var xf = wb.Styles.Get(cell.Style);
-                string? fillc = cf?.Fill ?? xf.FillColor;
+                string? fillc = cf?.Fill ?? xf.FillColor ?? tl?.Fill;
                 if (fillc != null) dc.DrawRectangle(Theme.Brush(Argb(fillc)), null, new Rect(XOf(c), y, cw, rh));
             }
         }
@@ -316,6 +321,8 @@ public sealed class GridCanvas : FrameworkElement
         string text = Wb.DisplayText(Sheet, r, c, Culture);
         if (text.Length == 0) return;
         // formattazione condizionale: sovrappone colori e grassetto allo stile della cella
+        if (Sheet.Tables.Count > 0 && Wb.TableLookAt(Sheet, r, c) is { } tlook)
+            xf = xf with { FillColor = xf.FillColor ?? tlook.Fill, Font = xf.Font with { Color = xf.Font.Color ?? tlook.Font, Bold = xf.Font.Bold || tlook.Bold } };
         if (Sheet.CondFmt.Count > 0 && Wb.CondFormatAt(Sheet, r, c, Culture) is { } look)
             xf = xf with { FillColor = look.Fill ?? xf.FillColor, Font = xf.Font with { Color = look.Font ?? xf.Font.Color, Bold = xf.Font.Bold || look.Bold } };
         // colore

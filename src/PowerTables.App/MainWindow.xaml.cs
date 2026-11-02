@@ -38,7 +38,7 @@ public partial class MainWindow : Window
         InitSheetUi();
         SetWorkbook(XlsxWriter.CreateNew());
         G.SelectionChanged += OnSelection;
-        G.CopyRequested += () => DoCopy(false); G.CutRequested += () => DoCopy(true); G.PasteRequested += DoPaste;
+        G.CopyRequested += () => DoCopy(false); G.CutRequested += () => DoCopy(true); G.PasteRequested += () => DoPaste();
         G.FilterMenuRequested += ShowFilterMenu;
         Host.EditTextChanged += t => { if (!FormulaBar.IsKeyboardFocusWithin) FormulaBar.Text = t; UpdateProbe(); };
         Host.EditEnded += RefreshBar;
@@ -90,7 +90,15 @@ public partial class MainWindow : Window
         RebuildSheetTabs(); RefreshBar(); UpdateTitle();
     }
 
-    void OnChanged() { UpdateTitle(); RefreshBar(); UpdateStatus(); UpdateProbe(); DumpState(); }
+    string _tabSig = "";
+    void OnChanged()
+    {
+        // annulla/ripeti di un foglio aggiunto, tolto, spostato o rinominato: la barra delle schede segue il modello
+        string sig = string.Join('|', Wb.Sheets.Select(s => s.Name));
+        if (sig != _tabSig && Cur != null) { if (!Wb.Sheets.Contains(Cur)) G.SwitchSheet(Wb.Sheets[Math.Min(Wb.Sheets.Count - 1, Math.Max(0, _lastSheetIndex))]); RebuildSheetTabs(); }
+        UpdateTitle(); RefreshBar(); UpdateStatus(); UpdateProbe(); DumpState();
+    }
+    int _lastSheetIndex;
 
     void UpdateTitle()
     {
@@ -217,17 +225,18 @@ public partial class MainWindow : Window
     void RebuildSheetTabs()
     {
         SheetTabs.Children.Clear();
+        _tabSig = string.Join('|', Wb.Sheets.Select(s => s.Name)); _lastSheetIndex = Cur?.Index ?? 0;
         foreach (var s in Wb.Sheets)
         {
             var sh = s;
             var b = new ToggleButton { Content = s.Name, IsChecked = ReferenceEquals(s, Cur), Padding = new Thickness(14, 4, 14, 4) };
             b.Click += (_, _) => { G.SwitchSheet(sh); RebuildSheetTabs(); RefreshBar(); UpdateStatus(); };
             b.MouseDoubleClick += (_, _) => RenameSheet(sh);
-            b.ContextMenu = null;
+            b.MouseRightButtonUp += (_, e) => { ShowSheetMenu(b, sh); e.Handled = true; };
             SheetTabs.Children.Add(b);
         }
         var add = new Button { Content = "+", ToolTip = "Nuovo foglio" };
-        add.Click += (_, _) => { var s = Wb.AddSheet(); G.SwitchSheet(s); RebuildSheetTabs(); };
+        add.Click += (_, _) => { var s = Wb.InsertSheet(); G.SwitchSheet(s); RebuildSheetTabs(); };
         SheetTabs.Children.Add(add);
     }
 
@@ -278,8 +287,17 @@ public partial class MainWindow : Window
         G.Marching = _clip;
     }
 
-    void DoPaste()
+    /// <summary>mode: 0 tutto, 1 solo valori, 2 solo formati (dagli appunti interni).</summary>
+    void DoPaste(int mode = 0)
     {
+        if (mode != 0)
+        {
+            if (_clip == null) { ThemedDialog.Notify(this, "Copiare prima delle celle in PowerTables.", DialogIcon.Info); return; }
+            int pr = G.ActiveRow, pc = G.ActiveCol, pr2 = Math.Min(Addr.MaxRow, pr + _clip.Rows - 1), pc2 = Math.Min(Addr.MaxCol, pc + _clip.Cols - 1);
+            if (mode == 1) Wb.Paste(_clip, Cur, pr, pc, true); else Wb.PasteFormats(_clip.Source, _clip.Row, _clip.Col, _clip.Row + _clip.Rows - 1, _clip.Col + _clip.Cols - 1, Cur, pr, pc, pr2, pc2);
+            G.SelectRange(pr, pc, pr2, pc2);
+            return;
+        }
         try
         {
             string? text = null;
@@ -299,6 +317,8 @@ public partial class MainWindow : Window
         var (r1, c1, r2, c2) = G.Selection;
         if (down && r2 > r1) Wb.AutoFill(Cur, r1, c1, r1, c2, r2, c2);
         else if (!down && c2 > c1) Wb.AutoFill(Cur, r1, c1, r2, c1, r2, c2);
+        else if (down && r1 > 1) Wb.AutoFill(Cur, r1 - 1, c1, r1 - 1, c2, r1, c2);      // una sola riga: copia quella sopra (Ctrl+D)
+        else if (!down && c1 > 1) Wb.AutoFill(Cur, r1, c1 - 1, r2, c1 - 1, r2, c1);      // una sola colonna: copia quella a sinistra (Ctrl+R)
     }
 
     // ---------------- formattazione ----------------
@@ -371,7 +391,7 @@ public partial class MainWindow : Window
         pop.IsOpen = true;
     }
 
-    void DropMenu(Button anchor, params (string Label, Action Act)[] items)
+    void DropMenu(FrameworkElement anchor, params (string Label, Action Act)[] items)
     {
         var pop = new Popup { PlacementTarget = anchor, Placement = PlacementMode.Bottom, StaysOpen = false, AllowsTransparency = true };
         var sp = new StackPanel { Margin = new Thickness(2) };
@@ -489,12 +509,28 @@ public partial class MainWindow : Window
         });
     }
 
+    /// <summary>Somma automatica come Excel: con più celle selezionate scrive le somme sotto (o a destra se la selezione è una sola riga); con una cella sola usa i numeri sopra, altrimenti quelli a sinistra.</summary>
     void AutoSum()
     {
-        int r = G.ActiveRow, c = G.ActiveCol, top = r - 1;
-        while (top >= 1 && Cur.Get(top, c).Kind == CellKind.Num) top--;
-        if (top == r - 1) return;
-        Wb.Do("Somma", () => Wb.SetFormula(Cur, r, c, $"SUM({Addr.A1(top + 1, c)}:{Addr.A1(r - 1, c)})"));
+        var (r1, c1, r2, c2) = G.Selection;
+        if (r1 != r2 || c1 != c2)
+        {
+            r2 = Math.Min(r2, Math.Max(r1, Cur.MaxRow)); c2 = Math.Min(c2, Math.Max(c1, Cur.MaxCol));
+            if (r1 == r2) { if (c2 + 1 > Addr.MaxCol) return; Wb.Do("Somma", () => Wb.SetFormula(Cur, r1, c2 + 1, $"SUM({Addr.A1(r1, c1)}:{Addr.A1(r1, c2)})")); }
+            else
+            {
+                if (r2 + 1 > Addr.MaxRow) return;
+                Wb.Do("Somma", () => { for (int c = c1; c <= c2; c++) Wb.SetFormula(Cur, r2 + 1, c, $"SUM({Addr.A1(r1, c)}:{Addr.A1(r2, c)})"); });
+            }
+            return;
+        }
+        int r = r1, col = c1, top = r - 1;
+        while (top >= 1 && Cur.Get(top, col).Kind == CellKind.Num) top--;
+        if (top != r - 1) { Wb.Do("Somma", () => Wb.SetFormula(Cur, r, col, $"SUM({Addr.A1(top + 1, col)}:{Addr.A1(r - 1, col)})")); return; }
+        int left = col - 1;
+        while (left >= 1 && Cur.Get(r, left).Kind == CellKind.Num) left--;
+        if (left != col - 1) { Wb.Do("Somma", () => Wb.SetFormula(Cur, r, col, $"SUM({Addr.A1(r, left + 1)}:{Addr.A1(r, col - 1)})")); return; }
+        ThemedDialog.Notify(this, "Nessun intervallo di numeri adiacente da sommare: selezionare le celle da sommare.", DialogIcon.Info, "Somma automatica");
     }
 
     void ImportCsv()
