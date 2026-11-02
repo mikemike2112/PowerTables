@@ -34,6 +34,7 @@ public partial class MainWindow : Window
         GridArea.Children.Add(Host);
         BuildChrome();
         BuildTabs();
+        InitTools();
         SetWorkbook(XlsxWriter.CreateNew());
         G.SelectionChanged += OnSelection;
         G.CopyRequested += () => DoCopy(false); G.CutRequested += () => DoCopy(true); G.PasteRequested += DoPaste;

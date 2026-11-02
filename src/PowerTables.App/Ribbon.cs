@@ -165,7 +165,7 @@ public partial class MainWindow
     {
         var fontLabel = default(TextBlock); var sizeLabel = default(TextBlock);
         var paste = Large("Incolla", "paste", DoPaste, true, "Incolla (Ctrl+V)");
-        var clip = Group("Appunti", paste, Col(Small("Taglia", "cut", () => DoCopy(true), tip: "Taglia (Ctrl+X)"), Small("Copia", "copy", () => DoCopy(false), tip: "Copia (Ctrl+C)"), Small("Copia formato", "fill", null)));
+        var clip = Group("Appunti", paste, Col(Small("Taglia", "cut", () => DoCopy(true), tip: "Taglia (Ctrl+X)"), Small("Copia", "copy", () => DoCopy(false), tip: "Copia (Ctrl+C)"), Small("Copia formato", "fill", CopyFormat)));
         _fontBox = Combo("Calibri", 118, b => DropMenu(b, new[] { "Calibri", "Arial", "Segoe UI", "Times New Roman", "Courier New", "Verdana", "Georgia", "Consolas" }.Select(n => (n, (Action)(() => Fmt(x => x with { Font = x.Font with { Name = n } })))).ToArray()), "Tipo di carattere", out fontLabel);
         _fontLabel = fontLabel;
         _sizeBox = Combo("11", 46, b => DropMenu(b, new[] { 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72 }.Select(n => (n.ToString(), (Action)(() => Fmt(x => x with { Font = x.Font with { Size = n } })))).ToArray()), "Dimensione carattere", out sizeLabel);
@@ -290,7 +290,7 @@ public partial class MainWindow
     FrameworkElement BuildData() => Tab("Dati",
         Group("Recupera e trasforma dati", Large("Da testo/CSV", "csv", ImportCsv)),
         Group("Ordina e filtra", Col(Small("Ordina dalla A alla Z", "sortaz", () => DoSort(true)), Small("Ordina dalla Z alla A", "sortza", () => DoSort(false))), Large("Filtro", "filter", ToggleFilter), Col(Small("Cancella", "clear", () => { if (Cur.Filter != null) Wb.ClearAutoFilter(Cur); }), Small("Riapplica", "filter", () => { Wb.ReapplyFilter(Cur, Ci); G.RelayoutAll(); }), Small("Avanzate", "filter", null))),
-        Group("Strumenti dati", Large("Testo in colonne", "table", null), Large("Rimuovi duplicati", "table", null), Large("Convalida dati", "table", null)),
+        Group("Strumenti dati", Large("Testo in colonne", "table", TextToColumnsDialog), Large("Rimuovi duplicati", "table", RemoveDuplicatesDialog), Large("Convalida dati", "table", null)),
         Group("Previsione", Large("Analisi di simulazione", "chart", null, true), Large("Foglio previsione", "chart", null)));
 
     FrameworkElement BuildView()
