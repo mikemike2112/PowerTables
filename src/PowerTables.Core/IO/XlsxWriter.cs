@@ -9,7 +9,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 namespace PowerTables.Core.IO;
 
 /// <summary>Salvataggio: riscrive solo le righe/parti toccate, il resto del package resta invariato.</summary>
-public static class XlsxWriter
+public static partial class XlsxWriter
 {
     static readonly XNamespace M = XlsxReader.MainNs;
 
@@ -38,6 +38,18 @@ public static class XlsxWriter
         return wb;
     }
 
+    /// <summary>Valori di un intervallo "Foglio!$B$2:$B$6" per la cache dei grafici (numeri come double, testo come stringa).</summary>
+    static List<object?> ReadRange(Workbook wb, string f)
+    {
+        var res = new List<object?>();
+        int i = f.LastIndexOf('!'); if (i < 0) return res;
+        string sn = f[..i]; if (sn.Length > 1 && sn[0] == (char)39) sn = sn[1..^1].Replace("''", "'");
+        var sh = wb.Sheets.FirstOrDefault(x => string.Equals(x.Name, sn, StringComparison.OrdinalIgnoreCase));
+        if (sh == null || !Addr.TryParseRange(f[(i + 1)..].Replace("$", ""), out var r1, out var c1, out var r2, out var c2)) return res;
+        for (int r = r1; r <= r2 && res.Count < 100000; r++) for (int c = c1; c <= c2; c++) res.Add(sh.GetValue(r, c) is double d ? d : sh.GetValue(r, c) is string t ? t : null);
+        return res;
+    }
+
     internal static void AddSheetPartFor(this Workbook wb, Sheet sh)
     {
         var st = wb.Pkg!; var wbp = st.Doc.WorkbookPart!;
@@ -61,6 +73,7 @@ public static class XlsxWriter
     {
         var st = wb.Pkg ?? throw new InvalidOperationException("nessun package");
         var wbp = st.Doc.WorkbookPart!;
+        XlsxObjects.RangeReader = f => ReadRange(wb, f);
         // nuovi fogli e rinomine
         var wbRoot = wbp.Workbook ?? throw new XlsxException("workbook.xml assente o illeggibile");
         bool wbChanged = false;
@@ -388,6 +401,8 @@ public static class XlsxWriter
             InsertOrdered(root, ns, hl);
         }
         ApplyTables(sh, root, ns, wsp);
+        XlsxObjects.WriteObjects(sh, root, ns, wsp);
+        XlsxObjects.WriteComments(sh, root, ns, wsp);
         if (sh.PrintOptions != null) InsertOrdered(root, ns, Fix(sh.PrintOptions));
         if (sh.PageMargins != null) InsertOrdered(root, ns, Fix(sh.PageMargins));
         if (sh.PageSetup != null) InsertOrdered(root, ns, Fix(sh.PageSetup));
@@ -476,7 +491,7 @@ public static class XlsxWriter
     }
 
     // ---------------- layout (cols, merge, pane, filtro) ----------------
-    static void InsertOrdered(XElement root, XNamespace ns, XElement e)
+    internal static void InsertOrdered(XElement root, XNamespace ns, XElement e)
     {
         int idx = Array.IndexOf(SheetOrder, e.Name.LocalName);
         var before = root.Elements().FirstOrDefault(x => Array.IndexOf(SheetOrder, x.Name.LocalName) > idx);
