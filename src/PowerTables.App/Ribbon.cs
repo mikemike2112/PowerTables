@@ -192,7 +192,7 @@ public partial class MainWindow
             ("Generale", () => NumFormat(0)), ("Numero", () => NumFormat(2)), ("Migliaia", () => NumFormat(4)), ("Valuta", () => NumFormat(0, "#,##0.00\\ \"€\"")), ("Percentuale", () => NumFormat(10)),
             ("Data breve", () => NumFormat(14)), ("Data estesa", () => NumFormat(0, "dddd d mmmm yyyy")), ("Ora", () => NumFormat(21)), ("Scientifico", () => NumFormat(11)), ("Testo", () => NumFormat(49))), "Formato numero", out _nfLabel);
         var numbers = Group("Numeri", Col(nfB, RowOf(Small("€", null, () => NumFormat(0, "#,##0.00\\ \"€\""), tip: "Formato valuta"), Small("%", null, () => NumFormat(9), tip: "Stile percentuale"), Small("000", null, () => NumFormat(4), tip: "Stile separatore"), Small(".00+", null, () => Decimals(1), tip: "Aumenta decimali"), Small(".0−", null, () => Decimals(-1), tip: "Diminuisci decimali"))));
-        var styles = Group("Stili", LargeMenu("Formattazione condizionale", "table", CondFormatMenu), LargeMenu("Formatta come tabella", "table", TableStyleMenu), Large("Stili cella", "table", null, true));
+        var styles = Group("Stili", LargeMenu("Formattazione condizionale", "table", CondFormatMenu), LargeMenu("Formatta come tabella", "table", TableStyleMenu), LargeMenu("Stili cella", "table", CellStyleMenu));
         Button? insB = null, delB = null, fmtB = null;
         fmtB = (Button)Small("Formato", "table", () => DropMenu(fmtB!, ("Formato celle...", FormatCellsDialog)), true);
         insB = (Button)Small("Inserisci", "rowplus", () => DropMenu(insB!, ("Inserisci righe", () => EditLines(true, true)), ("Inserisci colonne", () => EditLines(false, true))), true);

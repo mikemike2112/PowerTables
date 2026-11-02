@@ -63,7 +63,7 @@ Il grafo delle dipendenze viene costruito alla prima modifica o al ricalcolo (no
 
 ## Confronto visivo
 
-Il clone non esporta PDF (la stampa è P1), quindi il confronto PDF previsto dal brief **non è stato eseguito**. Osservazione visiva diretta: l'app mostra celle,
+L'esportazione PDF esiste (`PdfExport`, PDFsharp 6.2.4 MIT) ma il confronto PDF con Excel previsto dal brief **non è stato eseguito**. Osservazione visiva diretta: l'app mostra celle,
 formati, unioni, riquadri e filtri del corpus; i colori di sfondo/testo espliciti sono rispettati, il testo nero su sfondo non riempito viene invertito nel tema scuro (scelta di leggibilità).
 
 ## Limiti noti
@@ -76,5 +76,18 @@ Vedere `FEATURES.md` per le voci non spuntate.
 
 ## Inserimento/eliminazione righe e colonne
 - Aggiornati: celle, formule di tutti i fogli (incluse quelle su altri fogli), unioni, altezze/larghezze, filtro automatico, testo ricco, nomi definiti (anche `_xlnm.*`), `sqref` e formule di formattazione condizionale e convalida dati, collegamenti. Righe/colonne eliminate: le regole interamente dentro scompaiono, le altre si accorciano. Verificato sul Core con il validatore Open XML (`LinesFindTests`), non confrontato con Excel vero.
-- **Non aggiornati** (restano ai vecchi indirizzi, nessun errore di struttura): grafici, tabelle (`tableParts`), pivot, commenti, formule matriciali/opache, CF/convalida con estensione `x14` (`extLst`), regole di altri fogli che puntano a questo. Chi li usa deve ricontrollarli dopo l'operazione.
-- Dopo un salvataggio, annullare un'eliminazione ripristina le celle ma non riespande le regole CF/convalida già accorciate nel file.
+- **Non aggiornati** (restano ai vecchi indirizzi, nessun errore di struttura): grafici, pivot, commenti, formule matriciali/opache, CF/convalida con estensione `x14` (`extLst`), regole di altri fogli che puntano a questo. Chi li usa deve ricontrollarli dopo l'operazione.
+- Formattazione condizionale, convalida dati e collegamenti sono ora nel modello del foglio (`Sheet.CondFmt/DataVal/Links`) e seguono inserimenti/eliminazioni, anche con Annulla dopo il salvataggio. Le tabelle (`tableParts`) seguono righe/colonne e i nomi delle colonne seguono le intestazioni.
+
+## Giro «comandi inerti»
+Verificato sul Core con il validatore Open XML (nessun errore nuovo) e con test automatici; **non confrontato con Excel vero**.
+- **Copia formato / Rimuovi duplicati / Testo in colonne**: annullabili con un Ctrl+Z; Rimuovi duplicati confronta senza distinzione di maiuscole e sposta le formule delle righe rimaste; Testo in colonne interpreta i valori come digitati (delimitatori, qualificatore `"`).
+- **Nomi** (Definisci nome, Gestione nomi): validazione come Excel (non coincidono con riferimenti di cella), ambito cartella o foglio, `definedNames` riscritto al salvataggio conservando i nomi riservati; rinomina/spostamento/eliminazione fogli rimappano i nomi locali e `Print_Area`.
+- **Convalida dati**: numero intero, decimale, lunghezza testo, elenco (voci o intervallo); il valore digitato viene rifiutato con Riprova/Annulla; freccia dell'elenco nella cella attiva. Le formule digitate non sono controllate. Convalide con estensioni `x14`/`mc:AlternateContent` sono conservate ma non modificate.
+- **Formattazione condizionale**: regole `cellIs` (maggiore, minore, uguale, diverso, tra...) e `containsText` con colori carattere/riempimento/grassetto (`dxf`), disegnate nella griglia e nel PDF. Altri tipi di regola (barre, scale colori, set di icone, formule) sono conservati e non disegnati.
+- **Collegamento**: URL esterni solo `http`, `https`, `ftp`, `mailto` (qualunque altro schema è rifiutato), posizioni interne `Foglio!A1`; Ctrl+clic apre.
+- **Formato celle** (Ctrl+1): codice numerico, allineamento, rientro, carattere, colori (RRGGBB), un solo Annulla. **Stili cella**: preimpostazioni applicate come formato (non stili con nome del file).
+- **Imposta pagina**: margini, orientamento, formato carta (A4, A3, A5, Lettera, Legale), area di stampa, griglia in stampa, salvati in `pageMargins`/`pageSetup`/`printOptions`/`_xlnm.Print_Area`. Non gestiti: adattamento a pagine, intestazioni e piè di pagina, ripeti titoli, interruzioni manuali.
+- **Esporta PDF / Stampa**: area di stampa o area usata, orientamento, carta, margini, divisione in pagine per righe e colonne (prima in basso, poi a destra), riempimenti, bordi, caratteri, allineamenti, formattazione condizionale e stile tabella. Caratteri dalla cartella Fonts di sistema (Calibri, Arial, Times, Courier, Verdana, Georgia, Segoe UI, Consolas; altri → Arial). Stampa apre il PDF nel programma predefinito. Righe nascoste, unioni e rotazione del testo: unioni sì, rotazione no.
+- **Tabelle**: creazione (con o senza intestazioni; intestazioni vuote/duplicate rinominate «ColonnaN»), `table*.xml` scritto con stile, aggiornamento area/nomi colonna dopo inserimenti e modifiche delle intestazioni, conversione in intervallo. Gli stili sono 5 (Medio 2, 3, 4, 5, 7); stili di tabella non gestiti sono conservati e disegnati solo da Excel. Niente totali, filtri di tabella né riferimenti strutturati nelle formule.
+- **Fogli**: nuovo, elimina (riferimenti → `#REF!`), sposta, rinomina: tutti annullabili. Un foglio eliminato e poi ripristinato con Annulla dopo un salvataggio è riscritto da zero (celle e layout, non gli oggetti del file originale).
