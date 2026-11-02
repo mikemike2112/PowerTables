@@ -167,6 +167,7 @@ public sealed class UiDriver : IDisposable
     {
         JsonElement d = default;
         for (int i = 0; i < 30; i++) { try { d = Dump(); if (ok(d)) return d; } catch (Exception e) when (e is KeyNotFoundException or InvalidOperationException) { } Thread.Sleep(200); }
+        Assert.Fail("DumpUntil: condizione mai vera entro 6 s");   // prima restituiva l'ultimo dump: i test senza asserzione passavano a vuoto
         return d;
     }
 
