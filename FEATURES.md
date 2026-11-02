@@ -48,9 +48,11 @@ Non è stato possibile pilotare la UI con mouse/tastiera in modo automatico (nie
 - [x] P0 Blocca riquadri (riga, colonna, fino alla selezione, sblocca; verificato in Excel)
 - [x] P0 Più fogli (nuovo foglio, rinomina con aggiornamento delle formule), griglia on/off, tema scuro/chiaro
 - [x] P1 Nuovo/elimina/sposta/rinomina foglio annullabili (`SheetOpsTests`), Normale (unica vista)
-- [ ] P1 Divisione finestra, nascondi/mostra righe-colonne-fogli da UI, Intestazioni on/off, Nuova finestra
+- [x] P1 Intestazioni on/off (nasconde le etichette, il margine resta; salvato nel file), Nuova finestra (altro processo; sullo stesso file solo se salvato) (`ViewUiTests`)
+- [ ] P1 Divisione finestra, nascondi/mostra righe-colonne-fogli da UI
 - [x] P1 Margini, orientamento, dimensioni carta, area di stampa, griglia in stampa, Esporta PDF e Stampa (via PDF) (`PdfExportTests`)
-- [ ] P1 Anteprima interruzioni di pagina, Layout di pagina (vista), adatta a pagine, intestazioni/piè di pagina
+- [x] P1 Layout di pagina e Anteprima interruzioni di pagina (linee tratteggiate fra le pagine, numero di pagina, area fuori stampa in grigio; non si trascinano le interruzioni) (`ViewCoreTests`, `ViewUiTests`)
+- [ ] P1 Adatta a pagine, intestazioni/piè di pagina, interruzioni manuali
 
 ## Griglia e prestazioni
 - [x] P0 Griglia virtualizzata con `FrameworkElement` + `DrawingContext`, store di celle sparso, test a 1.000.000 di righe popolate (`COMPAT.md`)
@@ -59,7 +61,10 @@ Non è stato possibile pilotare la UI con mouse/tastiera in modo automatico (nie
 
 ## Inserisci / Layout / Revisione / Disegno
 - [x] P1 Collegamento (esterno http/https/ftp/mailto o interno; Ctrl+clic)
-- [ ] P1 Grafici, immagini, forme, tabelle pivot, commenti: **conservati intatti nel file** (round-trip provato), non creabili né visibili nell'app. Rimasti inerti nella ribbon: Tabella pivot, Immagini, Forme, Grafici consigliati/Istogramma/Linee, Commento, Casella di testo, Temi, Analisi di simulazione, Foglio previsione, Nuovo script/Visualizza script, Nuova finestra, Avanzate, Anteprima interruzioni, Layout di pagina (vista), Intestazioni
+- [x] P1 Immagini (PNG/JPEG/GIF), Forme (5), Casella di testo, Istogramma e Linee (anche da Grafici consigliati), Commento (nota con triangolo rosso e suggerimento), Tabella pivot minima: disegnati nella griglia, scritti nel file, riletti, annullabili (`ObjectsTests`, `PivotTests`, `ObjectsUiTests`)
+- [x] P1 Avanzate (filtro avanzato con criteri E/O, sul posto o con copia, univoci), Ricerca obiettivo, Foglio previsione lineare con grafico (`AdvFilterTests`, `AnalysisTests`)
+- [x] P1 Temi: scelta Interfaccia scura/chiara (tema dell'applicazione, non il tema di colori del file)
+- [ ] P1 Altri grafici (barre, torta, dispersione), spostare/ridimensionare oggetti col mouse, oggetti del file non creati qui (restano intatti, non disegnati), pivot con colonne/filtri/più campi, stili di tema del file, Nuovo script/Visualizza script (volutamente inerti: eseguirebbero contenuto attivo)
 - [ ] P2 Pivot, Power Query, macro (nessuna esecuzione di contenuto attivo), revisione, input penna
 
 ## Stato round-trip (aggiornamento)
