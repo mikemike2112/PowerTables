@@ -65,6 +65,7 @@ public partial class MainWindow : Window
             {
                 if (e.Key == Key.S) { Save(false); e.Handled = true; }
                 else if (e.Key == Key.O) { Open(); e.Handled = true; }
+                else if (e.Key == Key.P) { PrintSheet(); e.Handled = true; }
                 else if (e.Key == Key.N) { NewDoc(); e.Handled = true; }
                 else if (e.Key == Key.B && !Host.Editing) { Toggle(x => x.Font.Bold, (x, v) => x with { Font = x.Font with { Bold = v } }); e.Handled = true; }
                 else if (e.Key == Key.I && !Host.Editing) { Toggle(x => x.Font.Italic, (x, v) => x with { Font = x.Font with { Italic = v } }); e.Handled = true; }
