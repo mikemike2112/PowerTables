@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.IO;
+using System.Windows.Input;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Automation;
@@ -7,6 +9,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using PowerTables.Core;
 using PowerTables.Core.Formulas;
+using PowerTables.Core.IO;
 
 namespace PowerTables.App;
 
@@ -215,4 +218,36 @@ public partial class MainWindow
     void PrintAreaMenu(Button anchor) => DropMenu(anchor,
         ("Imposta area di stampa", () => { var (r1, c1, r2, c2) = G.Selection; Wb.SetPrintArea(Cur, (r1, c1, r2, c2)); }),
         ("Cancella area di stampa", () => Wb.SetPrintArea(Cur, null)));
+}
+
+public partial class MainWindow
+{
+    // ---------- Esporta PDF e Stampa ----------
+    void ExportPdf()
+    {
+        var res = ThemedDialog.AskSave(this, ThemedDialog.SaveMode.SaveAs, null, "", Cur.Name, DefaultFolder(), ".pdf", "PDF (*.pdf)|*.pdf");
+        if (res.Choice != SaveLogic.Choice.Save || res.Path == null) return;
+        try
+        {
+            Cursor = Cursors.Wait;
+            int n = PowerTables.Core.IO.PdfExport.Export(Wb, Cur, res.Path, Ci);
+            StatusRight.Text = $"PDF esportato ({n} pagine)";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException) { ThemedDialog.Notify(this, ex.Message, DialogIcon.Error, "Esportazione non riuscita"); }
+        finally { Cursor = null; }
+    }
+
+    /// <summary>Stampa: crea un PDF temporaneo del foglio e lo apre nel programma predefinito, da cui si stampa.</summary>
+    void PrintSheet()
+    {
+        try
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "PowerTables"); Directory.CreateDirectory(dir);
+            string path = Path.Combine(dir, "Stampa-" + Guid.NewGuid().ToString("N")[..8] + ".pdf");
+            int n = PowerTables.Core.IO.PdfExport.Export(Wb, Cur, path, Ci);
+            StatusRight.Text = $"Anteprima di stampa aperta ({n} pagine)";
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { ThemedDialog.Notify(this, ex.Message, DialogIcon.Error, "Stampa non riuscita"); }
+    }
 }

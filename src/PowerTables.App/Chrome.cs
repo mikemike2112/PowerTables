@@ -285,8 +285,8 @@ public partial class MainWindow
         Item("Salva con nome", "save", () => Save(true), "Salva con un altro nome.");
         Item("Importa CSV", "import", ImportCsv, "Importa un file CSV nel foglio corrente.");
         Item("Esporta CSV", "export", ExportCsv, "Esporta il foglio corrente in CSV.");
-        Item("Esporta PDF", "pdf", null, "");
-        Item("Stampa", "print", null, "");
+        Item("Esporta PDF", "pdf", ExportPdf, "Esporta il foglio corrente in PDF usando area di stampa, orientamento, formato carta e margini.");
+        Item("Stampa", "print", PrintSheet, "Apre il foglio corrente come PDF nel programma predefinito, da cui stampare.");
         Item("Chiudi", "close", Close, "Chiude PowerTables.");
         var dock = new DockPanel();
         DockPanel.SetDock(left, Dock.Left);
