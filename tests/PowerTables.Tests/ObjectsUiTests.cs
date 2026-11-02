@@ -37,4 +37,23 @@ public class ObjectsUiTests
         d = ui.DumpUntil(x => !Has(x, "comments", "B2="));
         ui.KillOwn();
     }
+
+    [Fact]
+    public void AdvancedFilter_ViaRibbon()
+    {
+        using var lk = UiLock.Acquire();
+        using var ui = UiDriver.Launch();
+        ui.EnterValue(1, 1, "n", "n"); ui.EnterValue(2, 1, "a", "a"); ui.EnterValue(3, 1, "b", "b"); ui.EnterValue(1, 4, "n", "n"); ui.EnterValue(2, 4, "b", "b");
+        ui.ClickCell(1, 1);
+        ui.ClickUntil("Scheda Dati", "Avanzate");
+        ui.Retry(() => ui.Click("Avanzate"), () => ui.Find("Filtro avanzato...", 800) != null);
+        ui.Retry(() => ui.Click("Filtro avanzato..."), () => ui.Find("AdvCrit", 800) != null);
+        ui.SetValueId("AdvList", "A1:A3"); ui.SetValueId("AdvCrit", "D1:D2");
+        ui.InvokeId("Dlg_Ok");
+        var d = ui.DumpUntil(x => x.GetProperty("hiddenRows").EnumerateArray().Any(h => h.GetInt32() == 2));
+        Assert.DoesNotContain(d.GetProperty("hiddenRows").EnumerateArray(), h => h.GetInt32() == 3);
+        ui.Key("^z");
+        ui.DumpUntil(x => x.GetProperty("hiddenRows").GetArrayLength() == 0);
+        ui.KillOwn();
+    }
 }
