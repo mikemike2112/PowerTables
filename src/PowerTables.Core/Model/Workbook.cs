@@ -20,6 +20,10 @@ public sealed partial class Workbook
     public readonly List<Sheet> Sheets = [];
     public readonly Dictionary<string, string> Names = new(StringComparer.OrdinalIgnoreCase);
     public readonly Dictionary<(int, string), string> LocalNames = [];
+    /// <summary>Maiuscole/minuscole originali dei nomi locali (la chiave di LocalNames è in maiuscolo).</summary>
+    public readonly Dictionary<(int, string), string> LocalNameCase = [];
+    /// <summary>Nomi o aree di stampa modificati: al salvataggio definedNames viene riscritto.</summary>
+    public bool NamesDirty;
     public bool Date1904;
     public string? FilePath;
     public StyleTable Styles = StyleTable.CreateDefault();

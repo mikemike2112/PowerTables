@@ -79,6 +79,7 @@ public static class XlsxWriter
                 foreach (var sh in wb.Sheets) foreach (var op in sh.LineOps) t = Formulas.FormulaText.AdjustLines(t, "", op.Sheet, op.Rows, op.At, op.Count);
                 if (t != dn.Text) { dn.Text = t; wbChanged = true; }
             }
+        if (wb.NamesDirty) { RewriteNames(wb, wbRoot); wbChanged = true; wb.NamesDirty = false; }
         if (wbChanged) wbRoot.Save();
 
         foreach (var sh in wb.Sheets)
@@ -117,6 +118,33 @@ public static class XlsxWriter
         }
         wb.FilePath = path;
         wb.Modified = false;
+    }
+
+    /// <summary>Riscrive definedNames dal modello: conserva i nomi riservati/nascosti, aggiorna i testi, aggiunge i nuovi, toglie gli eliminati.</summary>
+    static void RewriteNames(Workbook wb, DocumentFormat.OpenXml.Spreadsheet.Workbook wbRoot)
+    {
+        var dns = wbRoot.DefinedNames ?? new DefinedNames();
+        var done = new HashSet<(int, string)>(); var doneGlobal = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var e in dns.Elements<DefinedName>().ToList())
+        {
+            string n = e.Name?.Value ?? ""; int? ls = e.LocalSheetId?.Value is { } v ? (int)v : null;
+            if (n == "_xlnm.Print_Area") { e.Remove(); continue; }
+            if (n.StartsWith("_xlnm.") || (e.Hidden?.Value == true && n.StartsWith("_"))) continue;
+            if (ls is { } l)
+            {
+                var key = (l, n.ToUpperInvariant());
+                if (wb.LocalNames.TryGetValue(key, out var t)) { e.Text = t; done.Add(key); } else e.Remove();
+            }
+            else if (wb.Names.TryGetValue(n, out var t)) { e.Text = t; doneGlobal.Add(n); }
+            else e.Remove();
+        }
+        foreach (var kv in wb.Names.Where(k => !doneGlobal.Contains(k.Key)).OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase)) dns.Append(new DefinedName { Name = kv.Key, Text = kv.Value });
+        foreach (var kv in wb.LocalNames.Where(k => !done.Contains(k.Key)))
+            dns.Append(new DefinedName { Name = wb.LocalNameCase.GetValueOrDefault(kv.Key, kv.Key.Item2), LocalSheetId = (uint)kv.Key.Item1, Text = kv.Value });
+        foreach (var sh in wb.Sheets.Where(x => x.PrintArea != null))
+            dns.Append(new DefinedName { Name = "_xlnm.Print_Area", LocalSheetId = (uint)sh.Index, Text = sh.PrintArea });
+        if (!dns.HasChildren) { if (dns.Parent != null) dns.Remove(); return; }
+        if (dns.Parent == null) wbRoot.DefinedNames = dns;
     }
 
     // ---------------- riscrittura di una parte foglio ----------------

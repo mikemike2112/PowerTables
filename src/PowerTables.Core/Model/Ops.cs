@@ -372,18 +372,37 @@ public sealed partial class Workbook
         if (newName.Length == 0 || newName.Length > 31 || newName.IndexOfAny([':', '\\', '/', '?', '*', '[', ']']) >= 0) throw new ArgumentException("Nome foglio non valido.");
         if (Sheets.Any(x => x != s && string.Equals(x.Name, newName, StringComparison.OrdinalIgnoreCase))) throw new ArgumentException("Esiste già un foglio con questo nome.");
         string old = s.Name;
+        if (old == newName) return;
+        var fch = new List<(Sheet S, long K, FormulaInfo Old, FormulaInfo New)>();
         foreach (var sh in Sheets)
-            foreach (var key in sh.Cells.Where(kv => kv.Value.F is { Opaque: false }).Select(kv => kv.Key).ToList())
+            foreach (var kv in sh.Cells)
+                if (kv.Value.F is { Opaque: false } f)
+                {
+                    string nt = FormulaText.RenameSheet(f.Text, old, newName);
+                    if (nt != f.Text) fch.Add((sh, kv.Key, f, new FormulaInfo { Text = nt, CellAttrs = f.CellAttrs }));
+                }
+        var oldN = new Dictionary<string, string>(Names); var oldL = new Dictionary<(int, string), string>(LocalNames);
+        var oldP = Sheets.Select(x => x.PrintArea).ToArray();
+        void Apply(bool redo)
+        {
+            foreach (var (sh, k, o, n) in fch) { var c = sh.Get(Addr.Row(k), Addr.Col(k)); c.F = redo ? n : o; sh.Cells[k] = c; sh.MarkRowDirty(Addr.Row(k)); }
+            s.Name = redo ? newName : old;
+            string from = redo ? old : newName, to = redo ? newName : old;
+            if (redo)
             {
-                var cell = sh.Cells[key];
-                string nt = FormulaText.RenameSheet(cell.F!.Text, old, newName);
-                if (nt != cell.F.Text) { cell.F = new FormulaInfo { Text = nt, CellAttrs = cell.F.CellAttrs }; sh.Cells[key] = cell; sh.MarkRowDirty(Addr.Row(key)); }
+                foreach (var k in Names.Keys.ToList()) Names[k] = FormulaText.RenameSheet(Names[k], from, to);
+                foreach (var k in LocalNames.Keys.ToList()) LocalNames[k] = FormulaText.RenameSheet(LocalNames[k], from, to);
+                foreach (var sh in Sheets) if (sh.PrintArea != null) sh.PrintArea = FormulaText.RenameSheet(sh.PrintArea, from, to);
             }
-        s.Name = newName;
-        InvalidateGraph();
-        FormulasChangedSinceOpen = true;
-        Modified = true;
-        Changed?.Invoke();
+            else
+            {
+                Replace(Names, oldN); Replace(LocalNames, oldL);
+                for (int i = 0; i < oldP.Length && i < Sheets.Count; i++) Sheets[i].PrintArea = oldP[i];
+            }
+            NamesDirty = true; InvalidateGraph(); _formulasChanged = true; FormulasChangedSinceOpen = true;
+            foreach (var sh in Sheets) foreach (var kv in sh.Cells) if (kv.Value.F != null) _changed.Add((sh, kv.Key));
+        }
+        Do("Rinomina foglio", () => { Apply(true); AddUndo(() => Apply(false), () => Apply(true)); });
     }
 
     /// <summary>Applica una modifica di stile a un intervallo.</summary>

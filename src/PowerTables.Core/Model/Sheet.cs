@@ -56,6 +56,8 @@ public sealed class Sheet
     public double DefaultRowHeight = 15, DefaultColWidth = 9.140625;
     public AutoFilterState? Filter;
     public bool ShowGridLines = true;
+    /// <summary>Area di stampa (riferimento in forma di file, es. 'Foglio1'!$A$1:$C$9) o null.</summary>
+    public string? PrintArea;
 
     public int MaxRow { get; internal set; }
     public int MaxCol { get; internal set; }

@@ -238,7 +238,7 @@ public partial class MainWindow
         }
         return Tab("Formule",
             Group("Libreria di funzioni", Large("Inserisci funzione", "func", () => FunctionDialog()), Large("Somma automatica", "sigma", AutoSum), Cat("Finanziarie", "Finanziarie"), Cat("Logiche", "Logiche"), Cat("Testo", "Testo"), Cat("Data e ora", "Data e ora"), Cat("Ricerca e riferimento", "Ricerca e riferimento"), Cat("Matematiche", "Matematiche"), Cat("Statistiche", "Statistiche")),
-            Group("Nomi definiti", Large("Gestione nomi", "names", null), Col(Small("Definisci nome", "names", null))),
+            Group("Nomi definiti", Large("Gestione nomi", "names", NameManagerDialog), Col(Small("Definisci nome", "names", DefineNameDialog))),
             Group("Verifica formule", Col(Small("Mostra formule", "func", () => { Wb.ShowFormulas = !Wb.ShowFormulas; G.InvalidateVisual(); }))),
             Group("Calcolo", Large("Calcola adesso", "calc", RecalcNow)));
     }
