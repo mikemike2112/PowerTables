@@ -122,6 +122,14 @@ public static class FormulaText
         });
     }
 
+    /// <summary>I riferimenti a un foglio eliminato diventano #REF!.</summary>
+    public static string DeleteSheet(string formula, string name)
+    {
+        List<Token> toks;
+        try { toks = Lexer.Tokenize(formula); } catch (FormatException) { return formula; }
+        return Rebuild(formula, toks, t => t.Kind == T.Ref && t.Ref!.Sheet != null && string.Equals(t.Ref.Sheet, name, StringComparison.OrdinalIgnoreCase) ? "#REF!" : null);
+    }
+
     /// <summary>
     /// Mappa un intervallo di indici [lo,hi] dopo inserimento (count&gt;0) o eliminazione (count&lt;0) di |count| righe/colonne da <paramref name="at"/>.
     /// null = intervallo interamente eliminato.

@@ -268,6 +268,21 @@ public sealed partial class Workbook
         });
     }
 
+    /// <summary>Azzera i criteri di tutte le colonne mantenendo le frecce del filtro; le righe nascoste dal filtro tornano visibili.</summary>
+    public void ClearFilterCriteria(Sheet s, CultureInfo? ci = null)
+    {
+        var f = s.Filter; if (f == null || f.Allowed.Count == 0) return;
+        var oldHidden = SnapshotHidden(s);
+        var oldAllowed = f.Allowed.ToDictionary(k => k.Key, k => k.Value);
+        Do("Cancella filtro", () =>
+        {
+            f.Allowed.Clear(); f.Dirty = true; s.LayoutDirty = true;
+            ReapplyFilter(s, ci);
+            AddUndo(() => { f.Allowed = oldAllowed.ToDictionary(k => k.Key, k => k.Value); f.Dirty = true; s.LayoutDirty = true; RestoreHidden(s, oldHidden); },
+                    () => { f.Allowed.Clear(); f.Dirty = true; s.LayoutDirty = true; ReapplyFilter(s, ci); });
+        });
+    }
+
     public void ReapplyFilter(Sheet s, CultureInfo? ci = null)
     {
         var f = s.Filter; if (f == null) return;

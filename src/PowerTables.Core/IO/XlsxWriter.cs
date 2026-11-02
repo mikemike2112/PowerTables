@@ -64,6 +64,23 @@ public static class XlsxWriter
         // nuovi fogli e rinomine
         var wbRoot = wbp.Workbook ?? throw new XlsxException("workbook.xml assente o illeggibile");
         bool wbChanged = false;
+        // fogli eliminati (o ripristinati dopo un salvataggio) e nuovo ordine
+        var present = wbRoot.Sheets?.Elements<DocumentFormat.OpenXml.Spreadsheet.Sheet>().Select(x => x.Id?.Value).ToHashSet() ?? [];
+        foreach (var sh in wb.Sheets)
+            if (sh.PartId != null && !present.Contains(sh.PartId))
+            {
+                // ponytail: foglio riportato con Annulla dopo che il salvataggio lo aveva tolto → riscritto da zero (celle e layout, non gli oggetti del file originale)
+                sh.PartId = null; sh.OrigName = null; sh.LayoutDirty = true;
+                foreach (var k in sh.Cells.Keys) sh.DirtyRows.Add(Addr.Row(k));
+                foreach (var r in sh.Rows.Keys) sh.DirtyRows.Add(r);
+            }
+        if (wbRoot.Sheets != null)
+            foreach (var el in wbRoot.Sheets.Elements<DocumentFormat.OpenXml.Spreadsheet.Sheet>().ToList())
+                if (!wb.Sheets.Any(x => x.PartId == el.Id?.Value))
+                {
+                    try { if (el.Id?.Value is { } rid && wbp.GetPartById(rid) is { } part) wbp.DeletePart(part); } catch (ArgumentOutOfRangeException) { }
+                    el.Remove(); wbChanged = true;
+                }
         foreach (var sh in wb.Sheets)
         {
             if (sh.PartId == null) { wb.AddSheetPartFor(sh); wbChanged = true; }
@@ -79,12 +96,20 @@ public static class XlsxWriter
                 foreach (var sh in wb.Sheets) foreach (var op in sh.LineOps) t = Formulas.FormulaText.AdjustLines(t, "", op.Sheet, op.Rows, op.At, op.Count);
                 if (t != dn.Text) { dn.Text = t; wbChanged = true; }
             }
+        if (wbRoot.Sheets != null)
+        {
+            var els = wbRoot.Sheets.Elements<DocumentFormat.OpenXml.Spreadsheet.Sheet>().ToList();
+            var want = wb.Sheets.Select(x => els.FirstOrDefault(e => e.Id?.Value == x.PartId)).Where(e => e != null).Select(e => e!).ToList();
+            if (!want.SequenceEqual(els)) { foreach (var e in els) e.Remove(); foreach (var e in want) wbRoot.Sheets.Append(e); wbChanged = true; wb.NamesDirty = true; }
+            if (wbRoot.BookViews?.Elements<WorkbookView>().FirstOrDefault() is { } bv && bv.ActiveTab?.Value >= (uint)wb.Sheets.Count) { bv.ActiveTab = 0; wbChanged = true; }
+        }
         if (wb.NamesDirty) { RewriteNames(wb, wbRoot); wbChanged = true; wb.NamesDirty = false; }
         if (wbChanged) wbRoot.Save();
 
         foreach (var sh in wb.Sheets)
         {
             if (!sh.Loaded) continue;
+            if (sh.Tables.Count > 0 && sh.DirtyRows.Count > 0) sh.LayoutDirty = true;   // le intestazioni modificate vanno riportate nei nomi delle colonne
             if (sh.DirtyRows.Count == 0 && !sh.LayoutDirty) continue;
             var wsp = (WorksheetPart)wbp.GetPartById(sh.PartId!);
             byte[] orig;
@@ -93,7 +118,7 @@ public static class XlsxWriter
             using (var s = wsp.GetStream(FileMode.Create)) s.Write(bytes);
             sh.DirtyRows.Clear(); sh.LayoutDirty = false;
         }
-        foreach (var sh in wb.Sheets) sh.LineOps.Clear();
+        foreach (var sh in wb.Sheets) { sh.LineOps.Clear(); sh.FileIndex = sh.Index; }
         if (wb.Styles.Dirty)
         {
             var sp = wbp.WorkbookStylesPart ?? wbp.AddNewPart<WorkbookStylesPart>();
@@ -129,7 +154,15 @@ public static class XlsxWriter
         {
             string n = e.Name?.Value ?? ""; int? ls = e.LocalSheetId?.Value is { } v ? (int)v : null;
             if (n == "_xlnm.Print_Area") { e.Remove(); continue; }
-            if (n.StartsWith("_xlnm.") || (e.Hidden?.Value == true && n.StartsWith("_"))) continue;
+            if (n.StartsWith("_xlnm.") || (e.Hidden?.Value == true && n.StartsWith("_")))
+            {
+                if (ls is { } fl)   // nome riservato legato a un foglio: segue il foglio se è stato spostato, sparisce se eliminato
+                {
+                    var target = wb.Sheets.FirstOrDefault(x => x.FileIndex == fl);
+                    if (target == null) e.Remove(); else e.LocalSheetId = (uint)target.Index;
+                }
+                continue;
+            }
             if (ls is { } l)
             {
                 var key = (l, n.ToUpperInvariant());
@@ -354,9 +387,82 @@ public static class XlsxWriter
             }
             InsertOrdered(root, ns, hl);
         }
+        ApplyTables(sh, root, ns, wsp);
         if (sh.PrintOptions != null) InsertOrdered(root, ns, Fix(sh.PrintOptions));
         if (sh.PageMargins != null) InsertOrdered(root, ns, Fix(sh.PageMargins));
         if (sh.PageSetup != null) InsertOrdered(root, ns, Fix(sh.PageSetup));
+    }
+
+    static readonly string[] TableNs = ["http://schemas.openxmlformats.org/spreadsheetml/2006/main"];
+
+    static string HeaderName(Sheet sh, int r, int c, HashSet<string> used)
+    {
+        var cell = sh.Get(r, c);
+        string? h = cell.Kind == CellKind.Str ? (string?)cell.Obj : cell.Kind == CellKind.Num ? Fmt.NumToText(cell.Num) : null;
+        if (string.IsNullOrEmpty(h) || !used.Add(h)) { int n = c; string cand; do cand = "Column" + n++; while (!used.Add(cand)); h = cand; }
+        return h;
+    }
+
+    /// <summary>Tabelle: toglie le parti non più nel modello, aggiorna area e nomi colonna, scrive le nuove.</summary>
+    static void ApplyTables(Sheet sh, XElement root, XNamespace ns, WorksheetPart wsp)
+    {
+        var tps = root.Element(ns + "tableParts");
+        foreach (var el in (tps?.Elements(ns + "tablePart") ?? []).ToList())
+        {
+            string? rid = (string?)el.Attribute(RNs + "id");
+            if (sh.Tables.Any(t => t.PartRel == rid)) continue;
+            el.Remove();
+            try { if (rid != null && wsp.GetPartById(rid) is { } part) wsp.DeletePart(part); } catch (ArgumentOutOfRangeException) { }
+        }
+        // tabelle riportate con Annulla dopo che il salvataggio ne aveva tolto la parte: da riscrivere come nuove
+        foreach (var t in sh.Tables.Where(t => t.PartRel != null))
+            try { if (wsp.GetPartById(t.PartRel!) is not TableDefinitionPart) t.PartRel = null; } catch (ArgumentOutOfRangeException) { t.PartRel = null; }
+        // parti esistenti: area e nomi delle colonne
+        foreach (var t in sh.Tables.Where(t => t.PartRel != null))
+        {
+            if (wsp.GetPartById(t.PartRel!) is not TableDefinitionPart tp) continue;
+            XDocument doc; using (var s0 = tp.GetStream(FileMode.Open, FileAccess.Read)) doc = XDocument.Load(s0, LoadOptions.PreserveWhitespace);
+            var tn = doc.Root!.Name.Namespace;
+            string area = Addr.A1(t.R1, t.C1) + ":" + Addr.A1(t.R2, t.C2);
+            bool changed = false;
+            if ((string?)doc.Root.Attribute("ref") != area) { doc.Root.SetAttributeValue("ref", area); if (doc.Root.Element(tn + "autoFilter") is { } af) af.SetAttributeValue("ref", area); changed = true; }
+            var cols = doc.Root.Element(tn + "tableColumns")?.Elements(tn + "tableColumn").ToList();
+            if (cols != null && !t.NoHeader && cols.Count == t.C2 - t.C1 + 1)
+            {
+                var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                for (int i = 0; i < cols.Count; i++)
+                {
+                    string n = HeaderName(sh, t.R1, t.C1 + i, used);
+                    if ((string?)cols[i].Attribute("name") != n) { cols[i].SetAttributeValue("name", n); changed = true; }
+                }
+            }
+            if (changed) { using var os = tp.GetStream(FileMode.Create); doc.Save(os); }
+            t.Dirty = false;
+        }
+        // nuove tabelle
+        foreach (var t in sh.Tables.Where(t => t.PartRel == null).ToList())
+        {
+            var wbp = (WorkbookPart)wsp.GetParentParts().First();
+            int id = wbp.WorksheetParts.SelectMany(w => w.TableDefinitionParts).Select(p =>
+            {
+                try { using var s1 = p.GetStream(FileMode.Open, FileAccess.Read); return (int?)XDocument.Load(s1).Root!.Attribute("id") ?? 0; } catch (System.Xml.XmlException) { return 0; }
+            }).DefaultIfEmpty(0).Max() + 1;
+            var tp = wsp.AddNewPart<TableDefinitionPart>();
+            string area = Addr.A1(t.R1, t.C1) + ":" + Addr.A1(t.R2, t.C2);
+            var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var tcols = new XElement(M + "tableColumns", new XAttribute("count", t.C2 - t.C1 + 1));
+            for (int c = t.C1; c <= t.C2; c++) tcols.Add(new XElement(M + "tableColumn", new XAttribute("id", c - t.C1 + 1), new XAttribute("name", HeaderName(sh, t.R1, c, used))));
+            var doc = new XDocument(new XDeclaration("1.0", "UTF-8", "yes"), new XElement(M + "table", new XAttribute("id", id), new XAttribute("name", t.Name), new XAttribute("displayName", t.Name), new XAttribute("ref", area), new XAttribute("totalsRowShown", 0),
+                tcols, new XElement(M + "tableStyleInfo", new XAttribute("name", t.Style), new XAttribute("showFirstColumn", 0), new XAttribute("showLastColumn", 0), new XAttribute("showRowStripes", 1), new XAttribute("showColumnStripes", 0))));
+            using (var os = tp.GetStream(FileMode.Create)) doc.Save(os);
+            t.PartRel = wsp.GetIdOfPart(tp);
+            tps ??= new XElement(ns + "tableParts");
+            tps.Add(new XElement(ns + "tablePart", new XAttribute(RNs + "id", t.PartRel)));
+        }
+        if (tps == null) return;
+        if (!tps.HasElements) { tps.Remove(); return; }
+        tps.SetAttributeValue("count", tps.Elements().Count());
+        if (tps.Parent == null) InsertOrdered(root, ns, tps);
     }
 
     /// <summary>Marcatore interno (non scritto nel file) di un collegamento esterno non ancora legato a una relazione.</summary>

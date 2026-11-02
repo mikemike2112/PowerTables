@@ -45,6 +45,8 @@ public sealed class Sheet
     public string Name;
     public Workbook Book { get; internal set; } = null!;
     public int Index;
+    /// <summary>Posizione del foglio nel file all'ultimo caricamento/salvataggio (-1 = nuovo); serve a rimappare i nomi riservati al riordino.</summary>
+    internal int FileIndex = -1;
     internal readonly Dictionary<long, Cell> Cells = new();
     public IReadOnlyDictionary<long, Cell> CellMap => Cells;
     public readonly Dictionary<int, RowInfo> Rows = [];
@@ -61,6 +63,7 @@ public sealed class Sheet
     public string? PrintArea;
     /// <summary>Sezioni del foglio modellate come XML (caricate dal file, riscritte al salvataggio quando il layout è sporco).</summary>
     public readonly List<XElement> CondFmt = [], DataVal = [], Links = [];
+    public readonly List<TableDef> Tables = [];
     /// <summary>pageMargins / pageSetup / printOptions originali o modificati.</summary>
     public XElement? PageMargins, PageSetup, PrintOptions;
     /// <summary>Incrementato a ogni modifica di CondFmt (invalida la cache delle regole).</summary>

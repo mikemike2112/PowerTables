@@ -31,7 +31,7 @@ public sealed partial class Workbook
         var oldFilter = s.Filter;
         var oldFilterCopy = oldFilter == null ? null : new AutoFilterState { R1 = oldFilter.R1, C1 = oldFilter.C1, R2 = oldFilter.R2, C2 = oldFilter.C2, Allowed = new(oldFilter.Allowed), Dirty = true };
         int oldMaxR = s.MaxRow, oldMaxC = s.MaxCol;
-        var oldCf = CloneList(s.CondFmt); var oldDv = CloneList(s.DataVal); var oldLk = CloneList(s.Links);
+        var oldCf = CloneList(s.CondFmt); var oldDv = CloneList(s.DataVal); var oldLk = CloneList(s.Links); var oldTb = s.Tables.Select(t => t.Clone()).ToList();
 
         int Map(int v) { var m = FormulaText.MapSpan(v, v, at, count); return m == null ? 0 : m.Value.Lo; }
         long MapKey(long k, out bool gone)
@@ -117,7 +117,7 @@ public sealed partial class Workbook
                 s.Merges.Clear(); s.Merges.AddRange(oldMerges);
                 s.Filter = oldFilterCopy == null ? null : new AutoFilterState { R1 = oldFilterCopy.R1, C1 = oldFilterCopy.C1, R2 = oldFilterCopy.R2, C2 = oldFilterCopy.C2, Allowed = new(oldFilterCopy.Allowed), Dirty = true };
                 s.MaxRow = oldMaxR; s.MaxCol = oldMaxC;
-                SetList(s.CondFmt, oldCf); SetList(s.DataVal, oldDv); SetList(s.Links, oldLk); s.CfVersion++;
+                SetList(s.CondFmt, oldCf); SetList(s.DataVal, oldDv); SetList(s.Links, oldLk); s.CfVersion++; s.Tables.Clear(); s.Tables.AddRange(oldTb.Select(t => t.Clone()));
                 Touch();
             }
             // righe da riscrivere nel file + ricalcolo di tutte le formule
