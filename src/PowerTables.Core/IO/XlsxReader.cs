@@ -167,6 +167,12 @@ public static class XlsxReader
                     if (r.GetAttribute("ref") is { } rf && Addr.TryParseRange(rf, out var r1, out var c1, out var r2, out var c2) && (r1 != r2 || c1 != c2))
                         sh.Merges.Add(new MergeRange(r1, c1, r2, c2));
                     break;
+                case "conditionalFormatting" when r.Depth == 1 && r.NamespaceURI == MainNs: sh.CondFmt.Add(ReadEl(r)); break;
+                case "dataValidation" when r.Depth == 2 && r.NamespaceURI == MainNs: sh.DataVal.Add(ReadEl(r)); break;
+                case "hyperlink" when r.Depth == 2 && r.NamespaceURI == MainNs: sh.Links.Add(ReadEl(r)); break;
+                case "pageMargins" when r.Depth == 1 && r.NamespaceURI == MainNs: sh.PageMargins = ReadEl(r); break;
+                case "pageSetup" when r.Depth == 1 && r.NamespaceURI == MainNs: sh.PageSetup = ReadEl(r); break;
+                case "printOptions" when r.Depth == 1 && r.NamespaceURI == MainNs: sh.PrintOptions = ReadEl(r); break;
                 case "autoFilter":
                     if (r.GetAttribute("ref") is { } af && Addr.TryParseRange(af, out var a1, out var b1, out var a2, out var b2))
                         sh.Filter = new AutoFilterState { R1 = a1, C1 = b1, R2 = a2, C2 = b2 };
@@ -175,6 +181,14 @@ public static class XlsxReader
         }
         sh.DirtyRows.Clear();
         sh.LayoutDirty = false;
+    }
+
+    static XElement ReadEl(XmlReader r)
+    {
+        using var sub = r.ReadSubtree();
+        var el = XElement.Load(sub);
+        foreach (var d in el.DescendantsAndSelf()) d.Attributes().Where(a => a.IsNamespaceDeclaration && a.Name.LocalName == "xmlns" && a.Value == MainNs).Remove();   // solo il namespace predefinito, già dichiarato dalla radice; i prefissi (mc:, x12ac:) restano
+        return el;
     }
 
     static void ReadCol(Sheet sh, XmlReader r)

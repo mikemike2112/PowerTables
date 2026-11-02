@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Xml.Linq;
 
 namespace PowerTables.Core;
 
@@ -58,6 +59,12 @@ public sealed class Sheet
     public bool ShowGridLines = true;
     /// <summary>Area di stampa (riferimento in forma di file, es. 'Foglio1'!$A$1:$C$9) o null.</summary>
     public string? PrintArea;
+    /// <summary>Sezioni del foglio modellate come XML (caricate dal file, riscritte al salvataggio quando il layout è sporco).</summary>
+    public readonly List<XElement> CondFmt = [], DataVal = [], Links = [];
+    /// <summary>pageMargins / pageSetup / printOptions originali o modificati.</summary>
+    public XElement? PageMargins, PageSetup, PrintOptions;
+    /// <summary>Incrementato a ogni modifica di CondFmt (invalida la cache delle regole).</summary>
+    public int CfVersion;
 
     public int MaxRow { get; internal set; }
     public int MaxCol { get; internal set; }

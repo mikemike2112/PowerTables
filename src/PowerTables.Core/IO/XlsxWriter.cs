@@ -89,7 +89,7 @@ public static class XlsxWriter
             var wsp = (WorksheetPart)wbp.GetPartById(sh.PartId!);
             byte[] orig;
             using (var rs = wsp.GetStream(FileMode.Open, FileAccess.Read)) { var ms = new MemoryStream(); rs.CopyTo(ms); orig = ms.ToArray(); }
-            var bytes = RewriteSheet(sh, orig);
+            var bytes = RewriteSheet(sh, orig, wsp);
             using (var s = wsp.GetStream(FileMode.Create)) s.Write(bytes);
             sh.DirtyRows.Clear(); sh.LayoutDirty = false;
         }
@@ -148,7 +148,7 @@ public static class XlsxWriter
     }
 
     // ---------------- riscrittura di una parte foglio ----------------
-    static byte[] RewriteSheet(Sheet sh, byte[] orig)
+    static byte[] RewriteSheet(Sheet sh, byte[] orig, WorksheetPart wsp)
     {
         string text = Encoding.UTF8.GetString(orig);
         if (text.Length > 0 && text[0] == '﻿') text = text[1..];
@@ -175,7 +175,7 @@ public static class XlsxWriter
         // dimension
         int maxR = Math.Max(1, sh.MaxRow), maxC = Math.Max(1, sh.MaxCol);
         SetChild(root, ns, "dimension", new XAttribute("ref", sh.MaxRow == 0 ? "A1" : "A1:" + Addr.A1(maxR, maxC)), replace: true);
-        if (sh.LayoutDirty) ApplyLayout(sh, root, ns);
+        if (sh.LayoutDirty) { ApplyLayout(sh, root, ns); ApplySections(sh, root, ns, wsp); }
         foreach (var op in sh.LineOps) ApplyLineOp(root, ns, op);
 
         // righe
@@ -321,36 +321,52 @@ public static class XlsxWriter
     /// <summary>Riporta un inserimento/eliminazione su formattazione condizionale, convalida dati e collegamenti.</summary>
     static void ApplyLineOp(XElement root, XNamespace ns, LineOp op)
     {
-        string Adj(string f) => Formulas.FormulaText.AdjustLines(f, op.Sheet, op.Sheet, op.Rows, op.At, op.Count);
-        foreach (var cf in root.Elements(ns + "conditionalFormatting").ToList())
+        // ponytail: formattazione condizionale, convalida e collegamenti sono nel modello (Sheet.CondFmt/DataVal/Links) e seguono le righe in Lines.cs → qui nulla da fare
+    }
+
+    static readonly XNamespace RNs = XlsxReader.RelNs;
+
+    /// <summary>Riscrive dal modello conditionalFormatting, dataValidations, hyperlinks, printOptions, pageMargins, pageSetup.</summary>
+    static void ApplySections(Sheet sh, XElement root, XNamespace ns, WorksheetPart wsp)
+    {
+        foreach (var n in new[] { "conditionalFormatting", "dataValidations", "hyperlinks", "printOptions", "pageMargins", "pageSetup" })
+            foreach (var e in root.Elements(ns + n).ToList()) e.Remove();
+        // se il foglio non ha mai avuto questi elementi nel modello ma li ha nel file in forma non letta (prefisso diverso) restano: nessuna perdita
+        XElement Fix(XElement e) => Retarget(e, ns);
+        foreach (var cf in sh.CondFmt) InsertOrdered(root, ns, Fix(cf));
+        if (sh.DataVal.Count > 0)
         {
-            string sq = Formulas.FormulaText.AdjustSqref((string?)cf.Attribute("sqref") ?? "", op.Rows, op.At, op.Count);
-            if (sq.Length == 0) { cf.Remove(); continue; }
-            cf.SetAttributeValue("sqref", sq);
-            foreach (var f in cf.Descendants(ns + "formula")) f.Value = Adj(f.Value);
+            var dvs = new XElement(ns + "dataValidations", new XAttribute("count", sh.DataVal.Count));
+            foreach (var dv in sh.DataVal) dvs.Add(Fix(dv));
+            InsertOrdered(root, ns, dvs);
         }
-        var dvs = root.Element(ns + "dataValidations");
-        if (dvs != null)
+        if (sh.Links.Count > 0)
         {
-            foreach (var dv in dvs.Elements(ns + "dataValidation").ToList())
+            var hl = new XElement(ns + "hyperlinks");
+            foreach (var l in sh.Links)
             {
-                string sq = Formulas.FormulaText.AdjustSqref((string?)dv.Attribute("sqref") ?? "", op.Rows, op.At, op.Count);
-                if (sq.Length == 0) { dv.Remove(); continue; }
-                dv.SetAttributeValue("sqref", sq);
-                foreach (var f in dv.Elements().Where(e => e.Name.LocalName is "formula1" or "formula2")) f.Value = Adj(f.Value);
+                if ((string?)l.Attribute(PtUrl) is { } url)
+                {
+                    var rel = wsp.AddHyperlinkRelationship(new Uri(url, UriKind.RelativeOrAbsolute), true);
+                    l.SetAttributeValue(RNs + "id", rel.Id); l.SetAttributeValue(PtUrl, null);
+                }
+                hl.Add(Fix(l));
             }
-            if (!dvs.HasElements) dvs.Remove(); else dvs.SetAttributeValue("count", dvs.Elements().Count());
+            InsertOrdered(root, ns, hl);
         }
-        var hl = root.Element(ns + "hyperlinks");
-        if (hl != null)
-        {
-            foreach (var h in hl.Elements(ns + "hyperlink").ToList())
-            {
-                string sq = Formulas.FormulaText.AdjustSqref((string?)h.Attribute("ref") ?? "", op.Rows, op.At, op.Count);
-                if (sq.Length == 0) h.Remove(); else h.SetAttributeValue("ref", sq);
-            }
-            if (!hl.HasElements) hl.Remove();
-        }
+        if (sh.PrintOptions != null) InsertOrdered(root, ns, Fix(sh.PrintOptions));
+        if (sh.PageMargins != null) InsertOrdered(root, ns, Fix(sh.PageMargins));
+        if (sh.PageSetup != null) InsertOrdered(root, ns, Fix(sh.PageSetup));
+    }
+
+    /// <summary>Marcatore interno (non scritto nel file) di un collegamento esterno non ancora legato a una relazione.</summary>
+    public static readonly XName PtUrl = XName.Get("ptUrl", "urn:powertables");
+
+    static XElement Retarget(XElement e, XNamespace ns)
+    {
+        var c = new XElement(e);
+        foreach (var d in c.DescendantsAndSelf().Where(x => x.Name.Namespace == XlsxReader.MainNs && x.Name.Namespace != ns).ToList()) d.Name = ns + d.Name.LocalName;
+        return c;
     }
 
     // ---------------- layout (cols, merge, pane, filtro) ----------------
