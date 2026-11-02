@@ -93,6 +93,7 @@ public static class XlsxReader
             byte[] sb;
             using (var s = wsp.GetStream(FileMode.Open, FileAccess.Read)) { var ms = new MemoryStream(); s.CopyTo(ms); sb = ms.ToArray(); }
             LoadSheet(sh, sb, sst, richSst);
+            XlsxObjects.Load(sh, wsp);
             foreach (var tp in wsp.TableDefinitionParts)
             {
                 try

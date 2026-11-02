@@ -64,6 +64,10 @@ public sealed class Sheet
     /// <summary>Sezioni del foglio modellate come XML (caricate dal file, riscritte al salvataggio quando il layout è sporco).</summary>
     public readonly List<XElement> CondFmt = [], DataVal = [], Links = [];
     public readonly List<TableDef> Tables = [];
+    public readonly List<SheetObject> Objects = [];
+    /// <summary>Commenti per chiave cella (letti dal file e creati qui).</summary>
+    public readonly Dictionary<long, CellComment> Comments = [];
+    internal bool CommentsDirty;
     /// <summary>pageMargins / pageSetup / printOptions originali o modificati.</summary>
     public XElement? PageMargins, PageSetup, PrintOptions;
     /// <summary>Incrementato a ogni modifica di CondFmt (invalida la cache delle regole).</summary>
