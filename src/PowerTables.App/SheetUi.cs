@@ -293,6 +293,9 @@ public partial class MainWindow
         Add("Inserisci righe", () => EditLines(true, true)); Add("Inserisci colonne", () => EditLines(false, true));
         Add("Elimina righe", () => EditLines(true, false)); Add("Elimina colonne", () => EditLines(false, false));
         if (Wb.TableAt(Cur, G.ActiveRow, G.ActiveCol) is { } tbl) Add("Converti in intervallo", () => { Wb.RemoveTable(Cur, tbl); G.InvalidateVisual(); });
+        Add(Cur.Comments.ContainsKey(Addr.Key(G.ActiveRow, G.ActiveCol)) ? "Modifica commento" : "Nuovo commento", CommentDialog);
+        if (Cur.Comments.ContainsKey(Addr.Key(G.ActiveRow, G.ActiveCol))) Add("Elimina commento", () => Wb.SetComment(Cur, G.ActiveRow, G.ActiveCol, ""));
+        if (G.ObjectAt(Mouse.GetPosition(G)) is { } obj) Add("Elimina oggetto", () => { Wb.RemoveObject(Cur, obj); G.InvalidateVisual(); });
         Add("Cancella contenuto", () => G.ClearSelection());
         pop.Child = new Border { Background = R("PanelBrush"), BorderBrush = R("AccentBrush"), BorderThickness = new Thickness(1), Child = sp };
         pop.IsOpen = true;

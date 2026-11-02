@@ -220,11 +220,11 @@ public partial class MainWindow
     // ---------- Inserisci / Layout / Formule / Dati / Visualizza ----------
     FrameworkElement BuildInsert() => Tab("Inserisci",
         Group("Tabelle", Large("Tabella pivot", "table", null), Large("Tabella", "table", () => TableDialog())),
-        Group("Illustrazioni", Large("Immagini", "image", null), Large("Forme", "page", null)),
-        Group("Grafici", Large("Grafici consigliati", "chart", null), Large("Istogramma", "chart", null), Large("Linee", "chart", null)),
+        Group("Illustrazioni", Large("Immagini", "image", InsertPicture), LargeMenu("Forme", "page", ShapesMenu)),
+        Group("Grafici", LargeMenu("Grafici consigliati", "chart", RecommendedCharts), Large("Istogramma", "chart", () => InsertChart("col")), Large("Linee", "chart", () => InsertChart("line"))),
         Group("Collegamenti", Large("Collegamento", "page", LinkDialog)),
-        Group("Commenti", Large("Commento", "comment", null)),
-        Group("Testo", Large("Casella di testo", "page", null)));
+        Group("Commenti", Large("Commento", "comment", CommentDialog)),
+        Group("Testo", Large("Casella di testo", "page", () => ShapeDialog("rect", true))));
 
     FrameworkElement BuildLayout() => Tab("Layout di pagina",
         Group("Temi", Large("Temi", "theme", null, true)),

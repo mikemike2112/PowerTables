@@ -8,7 +8,7 @@ using PowerTables.Core.Formulas;
 namespace PowerTables.App;
 
 /// <summary>Griglia virtualizzata: disegna con DrawingContext solo le celle visibili. Nessun controllo per cella.</summary>
-public sealed class GridCanvas : FrameworkElement
+public sealed partial class GridCanvas : FrameworkElement
 {
     public const double HeaderH = 22, HeaderW = 50;
 
@@ -151,6 +151,7 @@ public sealed class GridCanvas : FrameworkElement
         var (sr1, sc1, sr2, sc2) = Selection;
         var quads = Quadrants(W, H);
         foreach (var q in quads) DrawQuadrant(dc, q, merged);
+        DrawObjects(dc, W, H);
         DrawHeaders(dc, W, H, quads);
         // separatori dei riquadri bloccati
         var sep = new Pen(Theme.Brush(Theme.Dark ? Color.FromRgb(0x60, 0x60, 0x60) : Color.FromRgb(0x90, 0x90, 0x90)), 1.5);
@@ -683,6 +684,9 @@ public sealed class GridCanvas : FrameworkElement
                 else if (p.X < HeaderW && p.Y > HeaderH && Math.Abs(p.Y - (YOf(RowAtY(p.Y)) + M.RowH(RowAtY(p.Y)))) <= 4) Cursor = Cursors.SizeNS;
                 else if (p.X > HeaderW && p.Y > HeaderH && FillHandleRect() is { } fh && fh.Contains(p)) Cursor = Cursors.Cross;
                 else Cursor = p.X < HeaderW || p.Y < HeaderH ? Cursors.Arrow : Cursors.Cross;
+                // commento della cella sotto il mouse
+                if (Sheet.Comments.Count > 0 && p.X > HeaderW && p.Y > HeaderH && Sheet.Comments.TryGetValue(Addr.Key(RowAtY(p.Y), ColAtX(p.X)), out var cmt)) ToolTip = (cmt.Author.Length > 0 ? cmt.Author + ": " : "") + cmt.Text;
+                else if (ToolTip != null) ToolTip = null;
                 break;
             case Drag.Select:
                 {
