@@ -56,4 +56,29 @@ public class ObjectsUiTests
         ui.DumpUntil(x => x.GetProperty("hiddenRows").GetArrayLength() == 0);
         ui.KillOwn();
     }
+
+    [Fact]
+    public void GoalSeek_And_Forecast_ViaRibbon()
+    {
+        using var lk = UiLock.Acquire();
+        using var ui = UiDriver.Launch();
+        ui.EnterValue(1, 1, "2", "2"); ui.EnterValue(2, 1, "=A1*3+1", "7");
+        ui.ClickCell(2, 1);
+        ui.ClickUntil("Scheda Dati", "Analisi di simulazione");
+        ui.Retry(() => ui.Click("Analisi di simulazione"), () => ui.Find("Ricerca obiettivo...", 800) != null);
+        ui.Retry(() => ui.Click("Ricerca obiettivo..."), () => ui.Find("GsValue", 800) != null);
+        ui.SetValueId("GsValue", "10"); ui.SetValueId("GsChange", "A1");
+        ui.InvokeId("Dlg_Ok");
+        var d = ui.DumpUntil(x => x.GetProperty("cells").GetProperty("A2").GetProperty("text").GetString() == "10");
+        Assert.Equal("3", d.GetProperty("cells").GetProperty("A1").GetProperty("text").GetString());
+
+        for (int i = 1; i <= 6; i++) { ui.EnterValue(i, 4, i.ToString(), i.ToString()); ui.EnterValue(i, 5, (10 + 2 * i).ToString(), (10 + 2 * i).ToString()); }
+        ui.ClickCell(1, 4);
+        ui.ClickUntil("Scheda Dati", "Foglio previsione");
+        ui.Retry(() => ui.Click("Foglio previsione"), () => ui.Find("FcTimeline", 800) != null);
+        ui.SetValueId("FcTimeline", "D1:D6"); ui.SetValueId("FcValues", "E1:E6");
+        ui.InvokeId("Dlg_Ok");
+        ui.DumpUntil(x => x.GetProperty("sheet").GetString() == "Previsione");
+        ui.KillOwn();
+    }
 }

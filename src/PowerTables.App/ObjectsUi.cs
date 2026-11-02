@@ -145,3 +145,66 @@ public partial class MainWindow
         Wb.ShowAllRows(Cur, r1, r2); G.RelayoutAll();
     }
 }
+
+public partial class MainWindow
+{
+    TextBlock ErrBlock(ThemedDialog d, string id)
+    {
+        var err = new TextBlock { Foreground = Theme.Brush(Color.FromRgb(0xe5, 0x5b, 0x5b)), FontFamily = new FontFamily("Segoe UI"), FontSize = 12, Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
+        AutomationProperties.SetAutomationId(err, id); d.Body.Children.Add(err);
+        return err;
+    }
+
+    /// <summary>Dati &gt; Analisi di simulazione &gt; Ricerca obiettivo.</summary>
+    void GoalSeekDialog()
+    {
+        var d = Form("Ricerca obiettivo");
+        var set = FormText(d, "Imposta la cella (con formula)", Addr.A1(G.ActiveRow, G.ActiveCol), "GsSet");
+        var val = FormText(d, "Al valore", "0", "GsValue");
+        var chg = FormText(d, "Cambiando la cella (numero)", "", "GsChange");
+        var err = ErrBlock(d, "GsError");
+        d.FocusFirst(val);
+        d.AddButton("Annulla", "Cancel", cancel: true);
+        var ok = d.AddButton("OK", "Ok", primary: true, close: false);
+        ok.Click += (_, _) =>
+        {
+            try
+            {
+                if (!ParseArea(set.Text, out var sa) || !ParseArea(chg.Text, out var ca)) throw new ArgumentException("Riferimento di cella non valido.");
+                if (!double.TryParse(val.Text, System.Globalization.NumberStyles.Float, Ci, out var target)) throw new ArgumentException("Valore non numerico.");
+                var res = Wb.GoalSeek(Cur, sa.R1, sa.C1, target, ca.R1, ca.C1);
+                if (res == null) { err.Text = "Nessuna soluzione trovata: la cella da cambiare è rimasta invariata."; return; }
+                StatusRight.Text = $"Ricerca obiettivo: {Addr.A1(ca.R1, ca.C1)} = {res.Value.ToString("G6", Ci)}";
+                d.DialogResult = true;
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { err.Text = ex.Message; }
+        };
+        d.ShowDialog();
+    }
+
+    void ForecastDialog()
+    {
+        var (r1, c1, r2, c2) = CurrentRegion();
+        var d = Form("Crea foglio previsione", "Previsione lineare (regressione) con limiti di confidenza al 95%.");
+        var tl = FormText(d, "Cronologia (date o numeri crescenti)", c2 > c1 ? Addr.A1(r1 + 1, c1) + ":" + Addr.A1(r2, c1) : "", "FcTimeline");
+        var vals = FormText(d, "Valori", c2 > c1 ? Addr.A1(r1 + 1, c1 + 1) + ":" + Addr.A1(r2, c1 + 1) : "", "FcValues");
+        var per = FormText(d, "Periodi da prevedere", "5", "FcPeriods", 80);
+        var err = ErrBlock(d, "FcErrorF");
+        d.FocusFirst(tl);
+        d.AddButton("Annulla", "Cancel", cancel: true);
+        var ok = d.AddButton("OK", "Ok", primary: true, close: false);
+        ok.Click += (_, _) =>
+        {
+            try
+            {
+                if (!ParseArea(tl.Text, out var ta) || !ParseArea(vals.Text, out var va)) throw new ArgumentException("Intervallo non valido.");
+                if (!int.TryParse(per.Text, out var p)) throw new ArgumentException("Numero di periodi non valido.");
+                var ns = Wb.CreateForecastSheet(Cur, va, ta, p);
+                G.SwitchSheet(ns); RebuildSheetTabs();
+                d.DialogResult = true;
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { err.Text = ex.Message; }
+        };
+        d.ShowDialog();
+    }
+}
