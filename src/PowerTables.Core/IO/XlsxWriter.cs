@@ -72,6 +72,13 @@ public static class XlsxWriter
             if (el != null && el.Name?.Value != sh.Name) { el.Name = sh.Name; wbChanged = true; }
             sh.OrigName = sh.Name;
         }
+        if (wb.Sheets.Any(x => x.LineOps.Count > 0) && wbRoot.DefinedNames != null)
+            foreach (var dn in wbRoot.DefinedNames.Elements<DefinedName>())
+            {
+                string t = dn.Text ?? "";
+                foreach (var sh in wb.Sheets) foreach (var op in sh.LineOps) t = Formulas.FormulaText.AdjustLines(t, "", op.Sheet, op.Rows, op.At, op.Count);
+                if (t != dn.Text) { dn.Text = t; wbChanged = true; }
+            }
         if (wbChanged) wbRoot.Save();
 
         foreach (var sh in wb.Sheets)
@@ -85,6 +92,7 @@ public static class XlsxWriter
             using (var s = wsp.GetStream(FileMode.Create)) s.Write(bytes);
             sh.DirtyRows.Clear(); sh.LayoutDirty = false;
         }
+        foreach (var sh in wb.Sheets) sh.LineOps.Clear();
         if (wb.Styles.Dirty)
         {
             var sp = wbp.WorkbookStylesPart ?? wbp.AddNewPart<WorkbookStylesPart>();
@@ -140,6 +148,7 @@ public static class XlsxWriter
         int maxR = Math.Max(1, sh.MaxRow), maxC = Math.Max(1, sh.MaxCol);
         SetChild(root, ns, "dimension", new XAttribute("ref", sh.MaxRow == 0 ? "A1" : "A1:" + Addr.A1(maxR, maxC)), replace: true);
         if (sh.LayoutDirty) ApplyLayout(sh, root, ns);
+        foreach (var op in sh.LineOps) ApplyLineOp(root, ns, op);
 
         // righe
         var sb = new StringBuilder(inner.Length + 4096);
@@ -279,6 +288,41 @@ public static class XlsxWriter
             else sb?.Append(ch);
         }
         return sb?.ToString() ?? s;
+    }
+
+    /// <summary>Riporta un inserimento/eliminazione su formattazione condizionale, convalida dati e collegamenti.</summary>
+    static void ApplyLineOp(XElement root, XNamespace ns, LineOp op)
+    {
+        string Adj(string f) => Formulas.FormulaText.AdjustLines(f, op.Sheet, op.Sheet, op.Rows, op.At, op.Count);
+        foreach (var cf in root.Elements(ns + "conditionalFormatting").ToList())
+        {
+            string sq = Formulas.FormulaText.AdjustSqref((string?)cf.Attribute("sqref") ?? "", op.Rows, op.At, op.Count);
+            if (sq.Length == 0) { cf.Remove(); continue; }
+            cf.SetAttributeValue("sqref", sq);
+            foreach (var f in cf.Descendants(ns + "formula")) f.Value = Adj(f.Value);
+        }
+        var dvs = root.Element(ns + "dataValidations");
+        if (dvs != null)
+        {
+            foreach (var dv in dvs.Elements(ns + "dataValidation").ToList())
+            {
+                string sq = Formulas.FormulaText.AdjustSqref((string?)dv.Attribute("sqref") ?? "", op.Rows, op.At, op.Count);
+                if (sq.Length == 0) { dv.Remove(); continue; }
+                dv.SetAttributeValue("sqref", sq);
+                foreach (var f in dv.Elements().Where(e => e.Name.LocalName is "formula1" or "formula2")) f.Value = Adj(f.Value);
+            }
+            if (!dvs.HasElements) dvs.Remove(); else dvs.SetAttributeValue("count", dvs.Elements().Count());
+        }
+        var hl = root.Element(ns + "hyperlinks");
+        if (hl != null)
+        {
+            foreach (var h in hl.Elements(ns + "hyperlink").ToList())
+            {
+                string sq = Formulas.FormulaText.AdjustSqref((string?)h.Attribute("ref") ?? "", op.Rows, op.At, op.Count);
+                if (sq.Length == 0) h.Remove(); else h.SetAttributeValue("ref", sq);
+            }
+            if (!hl.HasElements) hl.Remove();
+        }
     }
 
     // ---------------- layout (cols, merge, pane, filtro) ----------------

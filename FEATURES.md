@@ -19,7 +19,9 @@ Non è stato possibile pilotare la UI con mouse/tastiera in modo automatico (nie
 - [x] P0 Filtro automatico con elenco valori (salvato come `autoFilter` + righe nascoste)
 - [x] P0 Somma automatica
 - [ ] P1 Copia formato, Formatta come tabella, Stili cella, Formattazione condizionale (le formattazioni condizionali esistenti nei file sono conservate, non modificabili)
-- [ ] P1 Trova e sostituisci, inserisci/elimina righe-colonne-celle (con aggiornamento dei riferimenti), Incolla speciale (solo valori nel Core, senza UI)
+- [x] P1 Inserisci/elimina righe e colonne (Home > Celle; aggiorna formule di tutti i fogli, unioni, larghezze, filtro; riferimenti eliminati → `#REF!`; annullabile; `LinesFindTests`)
+- [x] P1 Trova e sostituisci (Ctrl+F, Ctrl+H, Home > Trova e seleziona; maiuscole, cella intera, formule incluse, sostituisci tutto in un solo Annulla; `LinesFindTests`)
+- [ ] P1 Inserisci/elimina celle singole, Incolla speciale (solo valori nel Core, senza UI)
 - [ ] P2 Orientamento testo, riduci per adattare
 
 ## Formule
@@ -43,7 +45,7 @@ Non è stato possibile pilotare la UI con mouse/tastiera in modo automatico (nie
 - [x] P0 Blocca riquadri (riga, colonna, fino alla selezione, sblocca; verificato in Excel)
 - [x] P0 Più fogli (nuovo foglio, rinomina con aggiornamento delle formule), griglia on/off, tema scuro/chiaro
 - [ ] P1 Zoom, divisione finestra, nascondi/mostra righe-colonne-fogli da UI, elimina/sposta foglio
-- [ ] P1 Anteprima interruzioni di pagina, layout di pagina, stampa, esportazione PDF
+- [ ] P1 Anteprima interruzioni di pagina, layout di pagina, stampa, esportazione PDF (non fatta)
 
 ## Griglia e prestazioni
 - [x] P0 Griglia virtualizzata con `FrameworkElement` + `DrawingContext`, store di celle sparso, test a 1.000.000 di righe popolate (`COMPAT.md`)

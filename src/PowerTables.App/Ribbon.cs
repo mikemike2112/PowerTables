@@ -191,10 +191,14 @@ public partial class MainWindow
             ("Data breve", () => NumFormat(14)), ("Data estesa", () => NumFormat(0, "dddd d mmmm yyyy")), ("Ora", () => NumFormat(21)), ("Scientifico", () => NumFormat(11)), ("Testo", () => NumFormat(49))), "Formato numero", out _nfLabel);
         var numbers = Group("Numeri", Col(nfB, RowOf(Small("€", null, () => NumFormat(0, "#,##0.00\\ \"€\""), tip: "Formato valuta"), Small("%", null, () => NumFormat(9), tip: "Stile percentuale"), Small("000", null, () => NumFormat(4), tip: "Stile separatore"), Small(".00+", null, () => Decimals(1), tip: "Aumenta decimali"), Small(".0−", null, () => Decimals(-1), tip: "Diminuisci decimali"))));
         var styles = Group("Stili", Large("Formattazione condizionale", "table", null, true), Large("Formatta come tabella", "table", null, true), Large("Stili cella", "table", null, true));
-        var cells = Group("Celle", Col(Small("Inserisci", "rowplus", null, true), Small("Elimina", "delete", null, true), Small("Formato", "table", null, true)));
+        Button? insB = null, delB = null;
+        insB = (Button)Small("Inserisci", "rowplus", () => DropMenu(insB!, ("Inserisci righe", () => EditLines(true, true)), ("Inserisci colonne", () => EditLines(false, true))), true);
+        delB = (Button)Small("Elimina", "delete", () => DropMenu(delB!, ("Elimina righe", () => EditLines(true, false)), ("Elimina colonne", () => EditLines(false, false))), true);
+        AutomationProperties.SetAutomationId(insB, "Cells_Insert"); AutomationProperties.SetAutomationId(delB, "Cells_Delete");   // "Inserisci" è anche il nome di una scheda
+        var cells = Group("Celle", Col(insB, delB, Small("Formato", "table", null, true)));
         Button? sortB = null;
         sortB = (Button)Large("Ordina e filtra", "sort", () => DropMenu(sortB!, ("Ordina dalla A alla Z", () => DoSort(true)), ("Ordina dalla Z alla A", () => DoSort(false)), ("Filtro", ToggleFilter)), true);
-        var edit = Group("Modifica", Col(Small("Somma automatica", "sigma", AutoSum, tip: "Somma automatica"), Small("Riempi giù", "fill", () => FillDirection(true), tip: "Riempi in basso (Ctrl+D)"), Small("Cancella", "clear", () => G.ClearSelection(), tip: "Cancella contenuto (Canc)")), sortB, Large("Trova e seleziona", "find", null, true));
+        var edit = Group("Modifica", Col(Small("Somma automatica", "sigma", AutoSum, tip: "Somma automatica"), Small("Riempi giù", "fill", () => FillDirection(true), tip: "Riempi in basso (Ctrl+D)"), Small("Cancella", "clear", () => G.ClearSelection(), tip: "Cancella contenuto (Canc)")), sortB, Large("Trova e seleziona", "find", () => ShowFind(false), true));
         return Tab("Home", clip, font, align, numbers, styles, cells, edit);
     }
 
