@@ -354,3 +354,18 @@ public partial class MainWindow
 
     void TableStyleMenu(Button anchor) => DropMenu(anchor, Workbook.TableStyles.Select(x => ("Tabella " + x.Label.ToLowerInvariant(), (Action)(() => TableDialog(x.Style)))).ToArray());
 }
+
+public partial class MainWindow
+{
+    // ---------- Stili cella (preimpostazioni applicate come formato normale: un solo Annulla) ----------
+    void CellStyleMenu(Button anchor) => DropMenu(anchor,
+        ("Normale", () => Fmt(x => x with { NumFmtId = 0, NumFmtCode = null, FillColor = null, HAlign = null, VAlign = null, Wrap = false, Indent = 0, Border = BorderInfo.None, Font = x.Font with { Bold = false, Italic = false, Underline = false, Strike = false, Color = null } })),
+        ("Buono", () => Fmt(x => x with { FillColor = "FFC6EFCE", Font = x.Font with { Color = "FF006100" } })),
+        ("Neutro", () => Fmt(x => x with { FillColor = "FFFFEB9C", Font = x.Font with { Color = "FF9C5700" } })),
+        ("Cattivo", () => Fmt(x => x with { FillColor = "FFFFC7CE", Font = x.Font with { Color = "FF9C0006" } })),
+        ("Titolo", () => Fmt(x => x with { Font = x.Font with { Bold = true, Size = 18, Color = "FF44546A" } })),
+        ("Intestazione 1", () => Fmt(x => x with { Font = x.Font with { Bold = true, Size = 15, Color = "FF44546A" } })),
+        ("Totale", () => Fmt(x => x with { Font = x.Font with { Bold = true }, Border = x.Border with { Top = new BorderSide("thin", null), Bottom = new BorderSide("double", null) } })),
+        ("Percentuale", () => Fmt(x => x with { NumFmtId = 9, NumFmtCode = null })),
+        ("Valuta", () => Fmt(x => x with { NumFmtId = 164, NumFmtCode = "#,##0.00\\ \"€\"" })));
+}
