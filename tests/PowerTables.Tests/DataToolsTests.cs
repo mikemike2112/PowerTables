@@ -66,4 +66,22 @@ public class DataToolsTests
         Assert.Equal(["a", "b"], Workbook.SplitText("a  b", " ", true, '"'));
         Assert.Equal(["a", "", "b"], Workbook.SplitText("a  b", " ", false, '"'));
     }
+
+    [Fact]
+    public void FormatCellsDialogChangeIsOneUndoStep()
+    {
+        var (wb, s) = New();
+        wb.Do("x", () => wb.SetValue(s, 1, 1, 0.256));
+        wb.FormatRange(s, 1, 1, 1, 1, x => x with
+        {
+            NumFmtId = 164, NumFmtCode = "0.00%", HAlign = "center", VAlign = "top", Wrap = true, Indent = 2, FillColor = "FFFFFF00",
+            Font = x.Font with { Name = "Arial", Size = 14, Bold = true, Italic = true, Underline = true, Strike = true, Color = "FFFF0000" },
+        });
+        var xf = wb.Styles.Get(s.Get(1, 1).Style);
+        Assert.Equal("0.00%", wb.Styles.FormatCode(s.Get(1, 1).Style)); Assert.Equal("25.60%".Replace('.', System.Globalization.CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator[0]), wb.DisplayText(s, 1, 1));
+        Assert.Equal(("center", "top", true, 2, "FFFFFF00"), (xf.HAlign, xf.VAlign, xf.Wrap, xf.Indent, xf.FillColor));
+        Assert.Equal(new FontInfo("Arial", 14, true, true, true, true, "FFFF0000"), xf.Font);
+        wb.Undo();
+        Assert.Equal(0u, s.Get(1, 1).Style);
+    }
 }
