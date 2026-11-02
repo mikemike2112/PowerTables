@@ -290,9 +290,10 @@ public partial class MainWindow
         if (d.ResultId2 != null) InsertFunction(d.ResultId2);
     }
 
+    Button? _advB;
     FrameworkElement BuildData() => Tab("Dati",
         Group("Recupera e trasforma dati", Large("Da testo/CSV", "csv", ImportCsv)),
-        Group("Ordina e filtra", Col(Small("Ordina dalla A alla Z", "sortaz", () => DoSort(true)), Small("Ordina dalla Z alla A", "sortza", () => DoSort(false))), Large("Filtro", "filter", ToggleFilter), Col(Small("Cancella", "clear", () => Wb.ClearFilterCriteria(Cur, Ci), tip: "Cancella i criteri del filtro (restano le frecce)"), Small("Riapplica", "filter", () => { Wb.ReapplyFilter(Cur, Ci); G.RelayoutAll(); }), Small("Avanzate", "filter", null))),
+        Group("Ordina e filtra", Col(Small("Ordina dalla A alla Z", "sortaz", () => DoSort(true)), Small("Ordina dalla Z alla A", "sortza", () => DoSort(false))), Large("Filtro", "filter", ToggleFilter), Col(Small("Cancella", "clear", () => Wb.ClearFilterCriteria(Cur, Ci), tip: "Cancella i criteri del filtro (restano le frecce)"), Small("Riapplica", "filter", () => { Wb.ReapplyFilter(Cur, Ci); G.RelayoutAll(); }), (_advB = (Button)Small("Avanzate", "filter", () => DropMenu(_advB!, ("Filtro avanzato...", AdvancedFilterDialog), ("Mostra tutte le righe", ClearAdvancedFilter)))))),
         Group("Strumenti dati", Large("Testo in colonne", "table", TextToColumnsDialog), Large("Rimuovi duplicati", "table", RemoveDuplicatesDialog), Large("Convalida dati", "table", DataValidationDialog)),
         Group("Previsione", Large("Analisi di simulazione", "chart", null, true), Large("Foglio previsione", "chart", null)));
 
