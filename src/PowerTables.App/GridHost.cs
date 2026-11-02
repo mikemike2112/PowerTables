@@ -102,6 +102,7 @@ public sealed partial class GridHost : Grid
         string text = Editor.Text;
         EndEditUi();
         ApplyInput(_editR, _editC, text);
+        if (Editing) return;   // convalida: «Riprova» ha riaperto la modifica
         if (dr != 0 || dc != 0) Canvas.Select(Canvas.ActiveRow + dr, Canvas.ActiveCol + dc);
         Canvas.Focus();
         EditEnded?.Invoke();
@@ -111,12 +112,21 @@ public sealed partial class GridHost : Grid
     {
         EndEditUi();
         ApplyInput(Canvas.ActiveRow, Canvas.ActiveCol, text);
+        if (Editing) return;
         Canvas.Focus();
         EditEnded?.Invoke();
     }
 
     void ApplyInput(int r, int c, string text)
     {
+        if (Canvas.Wb.CheckInput(Canvas.Sheet, r, c, text, Canvas.Culture) is { } bad)
+        {
+            // come Excel: Riprova riapre la modifica con il testo digitato, Annulla scarta
+            var d = new ThemedDialog(Window.GetWindow(this), "PowerTables", bad, DialogIcon.Warning);
+            d.AddButton("Annulla", "Cancel", cancel: true); d.AddButton("Riprova", "Retry", primary: true);
+            if (d.ShowAndGet() == "Retry") { Canvas.Select(r, c); BeginEdit(null, text); }
+            return;
+        }
         try { Canvas.Wb.Do("Modifica cella", () => Canvas.Wb.SetInput(Canvas.Sheet, r, c, text, Canvas.Culture)); }
         catch (FormatException ex) { ThemedDialog.Notify(Window.GetWindow(this), ex.Message, DialogIcon.Warning); }
     }

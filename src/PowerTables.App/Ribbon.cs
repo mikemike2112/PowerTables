@@ -33,6 +33,8 @@ public partial class MainWindow
         return Wrap(label, sp, act, tip, new Thickness(4, 4, 4, 2));
     }
 
+    FrameworkElement LargeMenu(string label, string icon, Action<Button> open) { Button? b = null; b = (Button)Large(label, icon, () => open(b!), true); return b; }
+
     FrameworkElement Small(string label, string? icon, Action? act, bool drop = false, string? tip = null, double minW = 0)
     {
         var sp = new StackPanel { Orientation = Orientation.Horizontal };
@@ -190,7 +192,7 @@ public partial class MainWindow
             ("Generale", () => NumFormat(0)), ("Numero", () => NumFormat(2)), ("Migliaia", () => NumFormat(4)), ("Valuta", () => NumFormat(0, "#,##0.00\\ \"€\"")), ("Percentuale", () => NumFormat(10)),
             ("Data breve", () => NumFormat(14)), ("Data estesa", () => NumFormat(0, "dddd d mmmm yyyy")), ("Ora", () => NumFormat(21)), ("Scientifico", () => NumFormat(11)), ("Testo", () => NumFormat(49))), "Formato numero", out _nfLabel);
         var numbers = Group("Numeri", Col(nfB, RowOf(Small("€", null, () => NumFormat(0, "#,##0.00\\ \"€\""), tip: "Formato valuta"), Small("%", null, () => NumFormat(9), tip: "Stile percentuale"), Small("000", null, () => NumFormat(4), tip: "Stile separatore"), Small(".00+", null, () => Decimals(1), tip: "Aumenta decimali"), Small(".0−", null, () => Decimals(-1), tip: "Diminuisci decimali"))));
-        var styles = Group("Stili", Large("Formattazione condizionale", "table", null, true), Large("Formatta come tabella", "table", null, true), Large("Stili cella", "table", null, true));
+        var styles = Group("Stili", LargeMenu("Formattazione condizionale", "table", CondFormatMenu), Large("Formatta come tabella", "table", null, true), Large("Stili cella", "table", null, true));
         Button? insB = null, delB = null;
         insB = (Button)Small("Inserisci", "rowplus", () => DropMenu(insB!, ("Inserisci righe", () => EditLines(true, true)), ("Inserisci colonne", () => EditLines(false, true))), true);
         delB = (Button)Small("Elimina", "delete", () => DropMenu(delB!, ("Elimina righe", () => EditLines(true, false)), ("Elimina colonne", () => EditLines(false, false))), true);
@@ -219,14 +221,14 @@ public partial class MainWindow
         Group("Tabelle", Large("Tabella pivot", "table", null), Large("Tabella", "table", null)),
         Group("Illustrazioni", Large("Immagini", "image", null), Large("Forme", "page", null)),
         Group("Grafici", Large("Grafici consigliati", "chart", null), Large("Istogramma", "chart", null), Large("Linee", "chart", null)),
-        Group("Collegamenti", Large("Collegamento", "page", null)),
+        Group("Collegamenti", Large("Collegamento", "page", LinkDialog)),
         Group("Commenti", Large("Commento", "comment", null)),
         Group("Testo", Large("Casella di testo", "page", null)));
 
     FrameworkElement BuildLayout() => Tab("Layout di pagina",
         Group("Temi", Large("Temi", "theme", null, true)),
-        Group("Imposta pagina", Large("Margini", "page", null, true), Large("Orientamento", "page", null, true), Large("Dimensioni", "page", null, true), Large("Area di stampa", "print", null, true)),
-        Group("Opzioni del foglio", Col(Check("Griglia: visualizza", Cur?.ShowGridLines ?? true, v => { Cur!.ShowGridLines = v; Cur.LayoutDirty = true; G.InvalidateVisual(); }), Check("Griglia: stampa", false, null))));
+        Group("Imposta pagina", LargeMenu("Margini", "page", MarginsMenu), LargeMenu("Orientamento", "page", OrientationMenu), LargeMenu("Dimensioni", "page", PaperMenu), LargeMenu("Area di stampa", "print", PrintAreaMenu)),
+        Group("Opzioni del foglio", Col(Check("Griglia: visualizza", Cur?.ShowGridLines ?? true, v => { Cur!.ShowGridLines = v; Cur.LayoutDirty = true; G.InvalidateVisual(); }), Check("Griglia: stampa", false, v => Wb.SetPrintGridLines(Cur, v)))));
 
     FrameworkElement BuildFormulas()
     {
@@ -290,7 +292,7 @@ public partial class MainWindow
     FrameworkElement BuildData() => Tab("Dati",
         Group("Recupera e trasforma dati", Large("Da testo/CSV", "csv", ImportCsv)),
         Group("Ordina e filtra", Col(Small("Ordina dalla A alla Z", "sortaz", () => DoSort(true)), Small("Ordina dalla Z alla A", "sortza", () => DoSort(false))), Large("Filtro", "filter", ToggleFilter), Col(Small("Cancella", "clear", () => { if (Cur.Filter != null) Wb.ClearAutoFilter(Cur); }), Small("Riapplica", "filter", () => { Wb.ReapplyFilter(Cur, Ci); G.RelayoutAll(); }), Small("Avanzate", "filter", null))),
-        Group("Strumenti dati", Large("Testo in colonne", "table", TextToColumnsDialog), Large("Rimuovi duplicati", "table", RemoveDuplicatesDialog), Large("Convalida dati", "table", null)),
+        Group("Strumenti dati", Large("Testo in colonne", "table", TextToColumnsDialog), Large("Rimuovi duplicati", "table", RemoveDuplicatesDialog), Large("Convalida dati", "table", DataValidationDialog)),
         Group("Previsione", Large("Analisi di simulazione", "chart", null, true), Large("Foglio previsione", "chart", null)));
 
     FrameworkElement BuildView()
