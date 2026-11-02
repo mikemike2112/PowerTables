@@ -65,6 +65,9 @@ public sealed class Sheet
     public readonly List<XElement> CondFmt = [], DataVal = [], Links = [];
     public readonly List<TableDef> Tables = [];
     public readonly List<SheetObject> Objects = [];
+    public readonly List<PivotDef> Pivots = [];
+    internal bool PivotsDirty;
+    internal readonly HashSet<string> PivotWritten = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>Commenti per chiave cella (letti dal file e creati qui).</summary>
     public readonly Dictionary<long, CellComment> Comments = [];
     internal bool CommentsDirty;

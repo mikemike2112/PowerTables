@@ -219,7 +219,7 @@ public partial class MainWindow
 
     // ---------- Inserisci / Layout / Formule / Dati / Visualizza ----------
     FrameworkElement BuildInsert() => Tab("Inserisci",
-        Group("Tabelle", Large("Tabella pivot", "table", null), Large("Tabella", "table", () => TableDialog())),
+        Group("Tabelle", Large("Tabella pivot", "table", PivotDialog), Large("Tabella", "table", () => TableDialog())),
         Group("Illustrazioni", Large("Immagini", "image", InsertPicture), LargeMenu("Forme", "page", ShapesMenu)),
         Group("Grafici", LargeMenu("Grafici consigliati", "chart", RecommendedCharts), Large("Istogramma", "chart", () => InsertChart("col")), Large("Linee", "chart", () => InsertChart("line"))),
         Group("Collegamenti", Large("Collegamento", "page", LinkDialog)),
@@ -227,7 +227,7 @@ public partial class MainWindow
         Group("Testo", Large("Casella di testo", "page", () => ShapeDialog("rect", true))));
 
     FrameworkElement BuildLayout() => Tab("Layout di pagina",
-        Group("Temi", Large("Temi", "theme", null, true)),
+        Group("Aspetto", LargeMenu("Temi", "theme", b => DropMenu(b, ("Interfaccia scura", () => SetDark(true)), ("Interfaccia chiara", () => SetDark(false))), "Tema dell'interfaccia di PowerTables: i colori del foglio restano quelli del file")),
         Group("Imposta pagina", LargeMenu("Margini", "page", MarginsMenu), LargeMenu("Orientamento", "page", OrientationMenu), LargeMenu("Dimensioni", "page", PaperMenu), LargeMenu("Area di stampa", "print", PrintAreaMenu)),
         Group("Opzioni del foglio", Col(Check("Griglia: visualizza", Cur?.ShowGridLines ?? true, v => { Cur!.ShowGridLines = v; Cur.LayoutDirty = true; G.InvalidateVisual(); }), Check("Griglia: stampa", false, v => Wb.SetPrintGridLines(Cur, v)))));
 
@@ -332,7 +332,7 @@ public partial class MainWindow
     {
         Theme.Dark = dark; Theme.Apply(Application.Current.Resources); Theme.Save();
         if (_darkToggle != null) _darkToggle.IsChecked = dark;
-        UpdateProbe();
+        UpdateProbe(); DumpState();
     }
 }
 

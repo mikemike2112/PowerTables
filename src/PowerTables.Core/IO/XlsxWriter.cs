@@ -109,6 +109,7 @@ public static partial class XlsxWriter
                 foreach (var sh in wb.Sheets) foreach (var op in sh.LineOps) t = Formulas.FormulaText.AdjustLines(t, "", op.Sheet, op.Rows, op.At, op.Count);
                 if (t != dn.Text) { dn.Text = t; wbChanged = true; }
             }
+        XlsxPivot.Apply(wb, wbp, wbRoot, ref wbChanged);
         if (wbRoot.Sheets != null)
         {
             var els = wbRoot.Sheets.Elements<DocumentFormat.OpenXml.Spreadsheet.Sheet>().ToList();

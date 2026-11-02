@@ -46,7 +46,7 @@ try {
                     $rh = @(); for ($k = 1; $k -le [Math]::Min(12, $r0 + $nr); $k++) { $rh += [Math]::Round([double]$ws.Rows.Item($k).RowHeight, 3) }
                     $res.sheets += [ordered]@{
                         name = $ws.Name; visible = [int]$ws.Visible; used = $ur.Address($false, $false); cells = $cells; colWidths = $cw; rowHeights = $rh
-                        shapes = [int]$ws.Shapes.Count; charts = [int]$ws.ChartObjects().Count; tables = [int]$ws.ListObjects.Count; comments = [int]$ws.Comments.Count
+                        shapes = [int]$ws.Shapes.Count; charts = [int]$ws.ChartObjects().Count; tables = [int]$ws.ListObjects.Count; pivots = [int]$ws.PivotTables().Count; comments = [int]$ws.Comments.Count
                         hyperlinks = [int]$ws.Hyperlinks.Count; filter = [bool]$ws.AutoFilterMode; protectedSheet = [bool]$ws.ProtectContents
                         cf = [int]$ws.Cells.FormatConditions.Count
                     }
