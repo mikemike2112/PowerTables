@@ -189,7 +189,7 @@ public static partial class XlsxWriter
         foreach (var kv in wb.LocalNames.Where(k => !done.Contains(k.Key)))
             dns.Append(new DefinedName { Name = wb.LocalNameCase.GetValueOrDefault(kv.Key, kv.Key.Item2), LocalSheetId = (uint)kv.Key.Item1, Text = kv.Value });
         foreach (var sh in wb.Sheets.Where(x => x.PrintArea != null))
-            dns.Append(new DefinedName { Name = "_xlnm.Print_Area", LocalSheetId = (uint)sh.Index, Text = sh.PrintArea });
+            dns.Append(new DefinedName { Name = "_xlnm.Print_Area", LocalSheetId = (uint)sh.Index, Text = sh.PrintArea! });
         if (!dns.HasChildren) { if (dns.Parent != null) dns.Remove(); return; }
         if (dns.Parent == null) wbRoot.DefinedNames = dns;
     }

@@ -228,7 +228,7 @@ public partial class MainWindow
     FrameworkElement BuildLayout() => Tab("Layout di pagina",
         Group("Aspetto", LargeMenu("Temi", "theme", b => DropMenu(b, ("Interfaccia scura", () => SetDark(true)), ("Interfaccia chiara", () => SetDark(false))), "Tema dell'interfaccia di PowerTables: i colori del foglio restano quelli del file")),
         Group("Imposta pagina", LargeMenu("Margini", "page", MarginsMenu), LargeMenu("Orientamento", "page", OrientationMenu), LargeMenu("Dimensioni", "page", PaperMenu), LargeMenu("Area di stampa", "print", PrintAreaMenu)),
-        Group("Opzioni del foglio", Col(Check("Griglia: visualizza", Cur?.ShowGridLines ?? true, v => { Cur!.ShowGridLines = v; Cur.LayoutDirty = true; G.InvalidateVisual(); }), Check("Griglia: stampa", false, v => Wb.SetPrintGridLines(Cur, v)))));
+        Group("Opzioni del foglio", Col(Check("Griglia: visualizza", Cur?.ShowGridLines ?? true, v => { Cur!.ShowGridLines = v; Cur.LayoutDirty = true; G.InvalidateVisual(); }), Check("Griglia: stampa", false, v => { if (Cur != null) Wb.SetPrintGridLines(Cur, v); }))));
 
     FrameworkElement BuildFormulas()
     {

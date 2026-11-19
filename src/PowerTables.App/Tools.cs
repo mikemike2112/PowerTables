@@ -53,7 +53,7 @@ public partial class MainWindow
     }
 
     // ---------- Copia formato ----------
-    (int R1, int C1, int R2, int C2)? _fmtSrc; Sheet? _fmtSheet; Button? _fmtBtn;
+    (int R1, int C1, int R2, int C2)? _fmtSrc; Sheet? _fmtSheet;
 
     void InitTools()
     {
