@@ -58,7 +58,7 @@ public class EngineExcelTests
     [Fact, Trait("Category", "OfficeCom")]
     public void GenerateExpectedFromExcel() => EnsureGenerated();
 
-    [Fact]
+    [Fact, Trait("Category", "OfficeCom")]   // usa Excel via COM
     public void EngineMatchesExcel()
     {
         EnsureGenerated();

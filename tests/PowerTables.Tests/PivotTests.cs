@@ -40,7 +40,7 @@ public class PivotTests
         Assert.Throws<ArgumentException>(() => wb.CreatePivot(s, (2, 1, 6, 3), 1, 3, false, s, 20, 1));     // niente intestazioni
     }
 
-    [Fact]
+    [Fact, Trait("Category", "OfficeCom")]   // usa Excel via COM
     public void WrittenValidatesExcelOpensItAndUndoAfterSaveRemovesParts()
     {
         string dir = Path.Combine(TestUtil.Root, "tests", "work", "pivot"); if (Directory.Exists(dir)) Directory.Delete(dir, true); Directory.CreateDirectory(dir);

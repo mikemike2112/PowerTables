@@ -91,7 +91,7 @@ public class ObjectsTests
         Assert.Empty(Errors(p)); Assert.Equal(2, XlsxReader.Open(p).Sheets[0].Comments.Count);
     }
 
-    [Fact]
+    [Fact, Trait("Category", "OfficeCom")]   // usa Excel via COM
     public void ExcelOpensObjectsAndCommentsWithoutRepair()
     {
         var dir = Path.Combine(TestUtil.Root, "tests", "work", "objects", "excel");
