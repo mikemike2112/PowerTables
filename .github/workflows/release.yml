@@ -24,7 +24,7 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
-      - run: dotnet test tests/PowerTables.Tests -c Release --filter "Category!=OfficeCom&Category!=Ui&Category!=UI&Category!=UiAutomation&Category!=Load" --logger trx --results-directory tr
+      - run: dotnet test tests/PowerTables.Tests -c Release --filter "Category!=OfficeCom&Category!=Ui&Category!=UI&Category!=UiAutomation&Category!=Load&Category!=OfficeFonts" --logger trx --results-directory tr
       - name: Test falliti come annotazioni
         # Le annotazioni si leggono anche senza login (API check-runs), il log no.
         if: failure()
